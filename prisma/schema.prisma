@@ -1,0 +1,210 @@
+// Prisma Schema for NiteOwl - Hyper-Local Late-Night Dark-Kitchen Delivery
+// Multi-Outlet & Zone-Based Radius Architecture
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// 1. Multi-Outlet Model
+// ----------------------------------------------------
+model Outlet {
+  id           String   @id @default(uuid())
+  name         String   // e.g., "Bhawarkua Hub"
+  slug         String   @unique // e.g., "bhawarkua-indore"
+  address      String   // e.g., "Tower Square, Bhawarkua Main Rd, Indore, MP 452001"
+  lat          Float    // e.g., 22.6926
+  lng          Float    // e.g., 75.8676
+  openingTime  String   @default("19:00") // 7:00 PM
+  closingTime  String   @default("04:00") // 4:00 AM next day
+  isStoreOpen  Boolean  @default(true)
+  isRushPaused Boolean  @default(false)    // Emergency full kitchen pause during surge
+  surgeMultiplier Float @default(1.0)      // Dynamic surge multiplier during midnight storms/curfews
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  zones        Zone[]
+  inventories  OutletInventory[]
+  orders       Order[]
+
+  @@index([slug])
+  @@index([lat, lng])
+  @@map("outlets")
+}
+
+// ----------------------------------------------------
+// 2. Zone-Based Radius Architecture
+// Concentric Micro-Zones around each Outlet Hub
+// ----------------------------------------------------
+enum ZoneCode {
+  ZONE_1 // Primary inner radius (< 800m) e.g., Bholaram Ustad Marg
+  ZONE_2 // Mid radius (800m - 1.5km) e.g., Vishnu Puri NX, Rajiv Gandhi Square
+  ZONE_3 // Outer radius (1.5km - 2.0km) e.g., Navlakha, Holkar College Outer
+  CUSTOM // Dynamic custom geofenced zone
+}
+
+model Zone {
+  id                    String   @id @default(uuid())
+  outletId              String
+  name                  String   // e.g., "Zone 1: Bholaram Core"
+  zoneCode              ZoneCode @default(ZONE_1)
+  radiusKm              Float    // Upper bound radius in km: 0.8, 1.5, 2.0
+  minRadiusKm           Float    @default(0.0) // Lower bound radius in km (for ring geometry)
+  landmarksCovered      String[] // Array of micro-landmarks: ["Bholaram", "Radha Krishna Girls Hostel", "Vishnu Puri", "Navlakha"]
+  minOrderValue         Float    @default(89.0) // Dynamic threshold (e.g. ₹89)
+  deliveryFee           Float    @default(0.0)  // e.g., ₹0 for Zone 1, ₹15 for Zone 3
+  freeDeliveryThreshold Float?   @default(149.0)// Free delivery if subtotal exceeds this
+  estimatedDeliveryMins Int      @default(15)   // e.g., Zone 1 = 15m, Zone 2 = 20m, Zone 3 = 25m
+  isActive              Boolean  @default(true) // Manager toggle during rain/rush
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relationships
+  outlet                Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  orders                Order[]
+
+  @@unique([outletId, zoneCode])
+  @@index([outletId, isActive])
+  @@map("zones")
+}
+
+// ----------------------------------------------------
+// 3. Catalog & Outlet Inventory
+// ----------------------------------------------------
+enum ItemCategory {
+  MAGGI_NOODLES
+  CHAI_COFFEE
+  SANDWICHES_BURGERS
+  ROLLS_WRAPS
+  QUICK_BITES
+  DESSERTS_BEVERAGES
+}
+
+model MenuItem {
+  id          String         @id @default(uuid())
+  name        String         // e.g., "Double Cheese Butter Maggi"
+  slug        String         @unique
+  category    ItemCategory
+  description String?
+  basePrice   Float          // e.g., 70.0
+  imageUrl    String?
+  isVeg       Boolean        @default(true)
+  rating      Float          @default(4.8)
+  ratingCount Int            @default(120)
+  prepTimeMin Int            @default(7)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  inventories OutletInventory[]
+
+  @@map("menu_items")
+}
+
+model OutletInventory {
+  id                 String   @id @default(uuid())
+  outletId           String
+  menuItemId         String
+  price              Float    // Hub-specific pricing override
+  isAvailableTonight Boolean  @default(true) // Kitchen 86 toggle
+  stockQuantity      Int?     @default(999)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  outlet             Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  menuItem           MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, menuItemId])
+  @@index([outletId, isAvailableTonight])
+  @@map("outlet_inventories")
+}
+
+// ----------------------------------------------------
+// 4. Order & Customer Late-Night Dispatch
+// ----------------------------------------------------
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  UPI_QR
+  UPI_INTENT
+  CASH_ON_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id             String        @id @default(uuid())
+  orderNumber    String        @unique // e.g., "NO-BHW-8941"
+  outletId       String
+  zoneId         String
+  
+  // Customer & Delivery Address Details
+  customerName   String        // e.g., "Priya Sharma"
+  customerPhone  String        // e.g., "+919876543210"
+  
+  // Address Details JSON Structure:
+  // {
+  //   "hostelPgOrFlat": "Radha Krishna Residency",
+  //   "roomNo": "Flat 204",
+  //   "floor": "2nd Floor",
+  //   "landmark": "Near Bholaram Square",
+  //   "leaveAtGate": true,
+  //   "silentDelivery": true,
+  //   "maskedCall": true,
+  //   "riderNotes": "Please drop at Guard desk"
+  // }
+  addressDetails Json
+
+  // Order Items Snapshot JSON:
+  // [
+  //   { "menuItemId": "...", "name": "Double Cheese Butter Maggi", "price": 70, "quantity": 2, "customization": "Extra peri-peri" }
+  // ]
+  items          Json
+
+  subtotal       Float         // Sum of items
+  deliveryFee    Float         // Evaluated against Zone deliveryFee rule
+  packagingFee   Float         @default(5.0) // Late night spill-proof foil packaging fee
+  discount       Float         @default(0.0) // Customer midnight promo coupons
+  total          Float         // subtotal + deliveryFee + packagingFee - discount
+
+  orderStatus    OrderStatus   @default(PLACED)
+  paymentMethod  PaymentMethod @default(UPI_QR)
+  paymentStatus  PaymentStatus @default(PENDING)
+
+  riderName      String?       @default("Suresh (NiteOwl Pilot)")
+  riderPhone     String?       @default("+919826001122")
+  estimatedMins  Int           @default(15)
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relationships
+  outlet         Outlet        @relation(fields: [outletId], references: [id])
+  zone           Zone          @relation(fields: [zoneId], references: [id])
+
+  @@index([outletId, orderStatus])
+  @@index([zoneId])
+  @@index([createdAt])
+  @@map("orders")
+}
