@@ -32,11 +32,19 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const body = await req.json();
     const updated = await ordersService.updateOrder(id, body);
 
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: `Order with ID ${id} not found` },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({ success: true, order: updated });
   } catch (error: any) {
+    const isNotFound = error?.message?.includes('not found');
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to update order' },
-      { status: 400 }
+      { status: isNotFound ? 404 : 400 }
     );
   }
 }

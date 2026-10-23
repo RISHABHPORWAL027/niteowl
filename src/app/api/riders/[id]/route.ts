@@ -40,6 +40,12 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const updated = await fleetService.updateRiderStatus(id, status);
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: `Rider with ID ${id} not found` },
+        { status: 404 }
+      );
+    }
     return NextResponse.json({ success: true, rider: updated });
   } catch (error: any) {
     return NextResponse.json(

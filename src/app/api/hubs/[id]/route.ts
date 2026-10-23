@@ -37,9 +37,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       { status: 400 }
     );
   } catch (error: any) {
+    const isNotFound = error?.message?.includes('not found');
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to update hub' },
-      { status: 400 }
+      { status: isNotFound ? 404 : 400 }
     );
   }
 }

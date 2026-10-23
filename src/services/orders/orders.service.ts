@@ -15,11 +15,20 @@ export class OrdersService {
   }
 
   async placeOrder(dto: CreateOrderDto): Promise<Order> {
-    if (!dto.items || dto.items.length === 0) {
+    if (!dto.items || !Array.isArray(dto.items) || dto.items.length === 0) {
       throw new Error('Order must contain at least one item');
     }
     if (!dto.outletId) {
       throw new Error('Outlet ID is required');
+    }
+    if (!dto.customerName || !dto.customerName.trim()) {
+      throw new Error('Customer name is required');
+    }
+    if (!dto.customerPhone || !dto.customerPhone.trim()) {
+      throw new Error('Customer phone number is required');
+    }
+    if (typeof dto.total !== 'number' || isNaN(dto.total) || dto.total < 0) {
+      throw new Error('Valid order total is required');
     }
 
     const randomNum = Math.floor(1000 + Math.random() * 9000);
