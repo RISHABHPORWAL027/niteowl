@@ -27,14 +27,17 @@ export default function OrderHistoryPage() {
     isCustomerAuthenticated,
     reorderItems,
     setActiveOrder,
+    syncWithBackend,
   } = useNiteOwlStore();
 
   useEffect(() => {
     setIsMounted(true);
     if (!isCustomerAuthenticated) {
       router.replace('/login?redirect=/orders');
+    } else {
+      syncWithBackend();
     }
-  }, [isCustomerAuthenticated, router]);
+  }, [isCustomerAuthenticated, router, syncWithBackend]);
 
   if (!isMounted || !isCustomerAuthenticated) {
     return (

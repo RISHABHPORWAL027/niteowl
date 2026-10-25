@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   X,
@@ -14,10 +14,16 @@ import {
   CheckCircle2,
   ExternalLink,
   ShieldCheck,
+  Navigation,
+  RefreshCw,
+  AlertTriangle,
+  Sparkles,
+  Send,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/types/database';
 import { useNiteOwlStore } from '@/store/useNiteOwlStore';
 import { INITIAL_RIDERS } from '@/lib/mockData';
+import { LiveTrackingMap } from '@/components/customer/LiveTrackingMap';
 
 interface AdminOrderDrawerProps {
   order: Order | null;
@@ -25,20 +31,32 @@ interface AdminOrderDrawerProps {
 }
 
 export function AdminOrderDrawer({ order, onClose }: AdminOrderDrawerProps) {
-  const { outlets, zonesMap, updateOrderStatus, riders: storeRiders } = useNiteOwlStore();
+  const {
+    outlets,
+    zonesMap,
+    updateOrderStatus,
+    riders: storeRiders,
+    bulkAssignRider,
+  } = useNiteOwlStore();
   const availableRiders = storeRiders?.length ? storeRiders : INITIAL_RIDERS;
 
-  const [selectedPilot, setSelectedPilot] = useState<string>(
-    order?.riderName && order.riderName !== 'Assigning pilot...'
-      ? order.riderName
-      : availableRiders[0]?.name || 'Pilot Suresh'
+  const currentAssignedRider = availableRiders.find(
+    (r) => r.id === order?.riderId || r.name === order?.riderName
   );
 
-  React.useEffect(() => {
-    if (order?.riderName && order.riderName !== 'Assigning pilot...') {
-      setSelectedPilot(order.riderName);
-    } else if (availableRiders[0]?.name) {
-      setSelectedPilot(availableRiders[0].name);
+  const [selectedPilotId, setSelectedPilotId] = useState<string>(
+    currentAssignedRider?.id || availableRiders[0]?.id || ''
+  );
+  const [drawerToast, setDrawerToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const matched = availableRiders.find(
+      (r) => r.id === order?.riderId || r.name === order?.riderName
+    );
+    if (matched) {
+      setSelectedPilotId(matched.id);
+    } else if (availableRiders[0]?.id) {
+      setSelectedPilotId(availableRiders[0].id);
     }
   }, [order, availableRiders]);
 
@@ -69,8 +87,8 @@ export function AdminOrderDrawer({ order, onClose }: AdminOrderDrawerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#151917] border-l border-[#1c211e] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 text-[#e5f4eb]">
+    <div className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative z-[10000] w-full max-w-md bg-[#151917] border-l border-[#1c211e] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 text-[#e5f4eb]">
         {/* Header */}
         <div className="p-4 border-b border-[#1c211e] flex items-center justify-between bg-[#111413]">
           <div>
@@ -172,6 +190,36 @@ export function AdminOrderDrawer({ order, onClose }: AdminOrderDrawerProps) {
             )}
           </div>
 
+          {/* Live Delivery Route Map */}
+          <div className="p-3 bg-[#0c0e0d] rounded-xl border border-[#1c211e] space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-[#e5f4eb] flex items-center gap-1.5">
+                <Navigation className="w-3.5 h-3.5 text-[#75cf5e]" />
+                Live Delivery Route GPS
+              </span>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&origin=22.6926,75.8676&destination=${encodeURIComponent(
+                  `${order.addressDetails.hostelPgOrFlat} ${order.addressDetails.landmark}, Indore`
+                )}&travelmode=two-wheeler`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-[#75cf5e] hover:underline flex items-center gap-1 font-semibold"
+              >
+                <span>Google Maps</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            </div>
+
+            <div className="rounded-xl overflow-hidden border border-[#1c211e]">
+              <LiveTrackingMap
+                orderStatus={order.orderStatus}
+                landmarkName={order.addressDetails.landmark || order.addressDetails.hostelPgOrFlat}
+                riderName={order.riderName || 'Pilot'}
+                className="h-56"
+              />
+            </div>
+          </div>
+
           {/* Items Breakdown */}
           <div className="p-3 bg-[#0c0e0d] rounded-xl border border-[#1c211e] space-y-2 text-xs">
             <h4 className="text-[10px] font-bold text-[#88998f] uppercase tracking-wider">
@@ -227,30 +275,116 @@ export function AdminOrderDrawer({ order, onClose }: AdminOrderDrawerProps) {
             </div>
           </div>
 
+          {/* Drawer Toast Feedback */}
+          {drawerToast && (
+            <div className="p-2.5 rounded-xl bg-[#75cf5e] text-[#0c0e0d] font-black text-xs flex items-center justify-between shadow-lg animate-in slide-in-from-top-1">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4" />
+                <span>{drawerToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerToast(null)}
+                className="p-0.5 hover:opacity-75 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Pilot Assignment & Stage Advance */}
-          <div className="p-3 bg-[#0c0e0d] rounded-xl border border-[#1c211e] space-y-3 text-xs">
+          <div className="p-3.5 bg-[#0c0e0d] rounded-xl border border-[#1c211e] space-y-3 text-xs">
             <h4 className="text-[10px] font-bold text-[#88998f] uppercase tracking-wider flex items-center gap-1.5">
               <Bike className="w-3.5 h-3.5 text-[#75cf5e]" />
               <span>Pilot Assignment &amp; Dispatch</span>
             </h4>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[#88998f] text-xs">Assign:</span>
-              <select
-                value={selectedPilot}
-                onChange={(e) => setSelectedPilot(e.target.value)}
-                className="flex-1 bg-[#151917] border border-[#1c211e] focus:border-[#75cf5e] rounded-lg px-2.5 py-1.5 text-xs text-[#e5f4eb] outline-none cursor-pointer"
-              >
-                {availableRiders.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Currently Assigned Display */}
+            {currentAssignedRider ? (
+              <div className="p-2.5 rounded-xl bg-[#151917] border border-emerald-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-[#88998f] font-bold uppercase block">
+                    Current Assigned Pilot
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-bold text-xs text-[#75cf5e]">
+                      {currentAssignedRider.name}
+                    </span>
+                    <span className="text-[10px] text-[#88998f]">
+                      • {currentAssignedRider.vehicle}
+                    </span>
+                  </div>
+                </div>
+                {currentAssignedRider.phone && (
+                  <a
+                    href={`tel:${currentAssignedRider.phone}`}
+                    className="p-1.5 rounded-lg bg-[#0c0e0d] hover:bg-[#1f2421] text-[#75cf5e] border border-[#1c211e] transition-colors"
+                    title={`Call ${currentAssignedRider.name}`}
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-[11px]">
+                  <p className="font-bold">No Pilot Assigned</p>
+                  <p className="text-amber-300/80">
+                    Which rider will take this order is required before dispatching.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Change / Reassign Dropdown Controls */}
+            {!isDelivered && order.orderStatus !== 'CANCELLED' && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#88998f] font-bold flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 text-amber-400" />
+                    <span>{currentAssignedRider ? 'Wrong Pilot? Reassign to:' : 'Select Delivery Pilot:'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedPilotId}
+                    onChange={(e) => setSelectedPilotId(e.target.value)}
+                    className="flex-1 bg-[#151917] border border-[#1c211e] focus:border-[#75cf5e] rounded-lg px-2.5 py-1.5 text-xs text-[#e5f4eb] outline-none cursor-pointer"
+                  >
+                    {availableRiders.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.id === currentAssignedRider?.id ? '(Current)' : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!order || !selectedPilotId) return;
+                      const targetPilot = availableRiders.find((r) => r.id === selectedPilotId);
+                      if (!targetPilot) return;
+
+                      bulkAssignRider([order.id], targetPilot.id);
+                      setDrawerToast(`⚡ Reassigned to ${targetPilot.name}!`);
+                      setTimeout(() => setDrawerToast(null), 3500);
+                    }}
+                    disabled={selectedPilotId === currentAssignedRider?.id}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                      selectedPilotId !== currentAssignedRider?.id
+                        ? 'bg-amber-500 hover:bg-amber-400 text-[#0c0e0d] shadow-xs active:scale-95'
+                        : 'bg-[#151917] text-[#88998f]/40 border border-[#1c211e] cursor-not-allowed'
+                    }`}
+                  >
+                    {currentAssignedRider ? 'Reassign' : 'Assign'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick Action Progression */}
-            <div className="pt-1">
+            <div className="pt-2 border-t border-[#1c211e] space-y-2">
               {isPlaced && (
                 <button
                   type="button"
@@ -263,18 +397,44 @@ export function AdminOrderDrawer({ order, onClose }: AdminOrderDrawerProps) {
               )}
 
               {isPreparing && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateOrderStatus(order.id, 'OUT_FOR_DELIVERY', {
-                      riderName: selectedPilot,
-                    })
-                  }
-                  className="w-full py-2.5 rounded-xl bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
-                >
-                  <Bike className="w-4 h-4 stroke-[2.5]" />
-                  <span>Dispatch Pilot (GPS Live)</span>
-                </button>
+                currentAssignedRider ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bulkAssignRider([order.id], currentAssignedRider.id, {
+                        updateStatus: 'OUT_FOR_DELIVERY',
+                      });
+                      setDrawerToast(`⚡ Dispatched with ${currentAssignedRider.name}!`);
+                      setTimeout(() => setDrawerToast(null), 3500);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
+                  >
+                    <Send className="w-4 h-4 stroke-[2.5]" />
+                    <span>Dispatch with {currentAssignedRider.name} (GPS Live)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedPilotId) {
+                        alert('Please select which pilot will take this order before dispatching.');
+                        return;
+                      }
+                      const targetPilot = availableRiders.find((r) => r.id === selectedPilotId);
+                      if (!targetPilot) return;
+
+                      bulkAssignRider([order.id], targetPilot.id, {
+                        updateStatus: 'OUT_FOR_DELIVERY',
+                      });
+                      setDrawerToast(`⚡ Dispatched with ${targetPilot.name}!`);
+                      setTimeout(() => setDrawerToast(null), 3500);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 animate-pulse"
+                  >
+                    <Send className="w-4 h-4 stroke-[2.5]" />
+                    <span>Assign Pilot &amp; Dispatch (GPS Live)</span>
+                  </button>
+                )
               )}
 
               {isOutForDelivery && (

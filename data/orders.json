@@ -1,0 +1,167 @@
+[
+  {
+    "id": "order-101",
+    "orderNumber": "NO-8491",
+    "outletId": "outlet-bhawarkua",
+    "zoneId": "zone-bhw-1",
+    "customerName": "Rohan Sharma",
+    "customerPhone": "+91 98260 11223",
+    "addressDetails": {
+      "hostelPgOrFlat": "Maa Gayatri Girls PG",
+      "roomNo": "Room 204, 2nd Floor",
+      "floor": "2",
+      "landmark": "Near Tower Square Crossing",
+      "leaveAtGate": false,
+      "silentDelivery": true,
+      "maskedCall": true,
+      "riderNotes": "Call upon reaching gate"
+    },
+    "items": [
+      {
+        "menuItemId": "item-butter-maggi",
+        "name": "Classic Butter Tadka Maggi",
+        "price": 69,
+        "quantity": 2,
+        "isVeg": true
+      },
+      {
+        "menuItemId": "item-kulhad-chai",
+        "name": "Adrak Elaichi Kulhad Chai (Flask - 2 Cups)",
+        "price": 45,
+        "quantity": 1,
+        "isVeg": true
+      }
+    ],
+    "subtotal": 183,
+    "deliveryFee": 0,
+    "packagingFee": 10,
+    "discount": 0,
+    "total": 193,
+    "orderStatus": "PLACED",
+    "paymentMethod": "UPI_INTENT",
+    "paymentStatus": "PAID",
+    "estimatedMins": 15,
+    "createdAt": "2026-10-25T22:30:00.000Z"
+  },
+  {
+    "id": "order-102",
+    "orderNumber": "NO-8492",
+    "outletId": "outlet-bhawarkua",
+    "zoneId": "zone-bhw-1",
+    "customerName": "Pooja Verma",
+    "customerPhone": "+91 98264 55667",
+    "addressDetails": {
+      "hostelPgOrFlat": "Radha Krishna Residency",
+      "roomNo": "Flat 302",
+      "floor": "3",
+      "landmark": "Opposite Bholaram Ustad Marg Gate 2",
+      "leaveAtGate": false,
+      "silentDelivery": false,
+      "maskedCall": false
+    },
+    "items": [
+      {
+        "menuItemId": "item-peri-fries",
+        "name": "Peri-Peri Crinkle Crispy Fries",
+        "price": 69,
+        "quantity": 1,
+        "isVeg": true
+      },
+      {
+        "menuItemId": "item-paneer-burger",
+        "name": "Crispy Paneer Makhani Midnight Burger",
+        "price": 109,
+        "quantity": 1,
+        "isVeg": true
+      }
+    ],
+    "subtotal": 178,
+    "deliveryFee": 0,
+    "packagingFee": 10,
+    "discount": 0,
+    "total": 188,
+    "orderStatus": "PREPARING",
+    "paymentMethod": "UPI_INTENT",
+    "paymentStatus": "PAID",
+    "estimatedMins": 12,
+    "createdAt": "2026-10-25T22:35:00.000Z"
+  },
+  {
+    "id": "order-103",
+    "orderNumber": "NO-8493",
+    "outletId": "outlet-bhawarkua",
+    "zoneId": "zone-bhw-2",
+    "customerName": "Aman Malviya",
+    "customerPhone": "+91 98267 88990",
+    "addressDetails": {
+      "hostelPgOrFlat": "Shivani Residency",
+      "roomNo": "Room 105",
+      "floor": "1",
+      "landmark": "Near Rajiv Gandhi Square",
+      "leaveAtGate": true,
+      "silentDelivery": true,
+      "maskedCall": true
+    },
+    "items": [
+      {
+        "menuItemId": "item-butter-maggi",
+        "name": "Classic Butter Tadka Maggi",
+        "price": 69,
+        "quantity": 1,
+        "isVeg": true
+      }
+    ],
+    "subtotal": 69,
+    "deliveryFee": 15,
+    "packagingFee": 10,
+    "discount": 0,
+    "total": 94,
+    "orderStatus": "PREPARING",
+    "riderId": "rider-suresh",
+    "riderName": "Pilot Suresh (#12)",
+    "riderPhone": "+91 98261 44556",
+    "paymentMethod": "UPI_INTENT",
+    "paymentStatus": "PAID",
+    "estimatedMins": 18,
+    "createdAt": "2026-10-25T22:38:00.000Z"
+  },
+  {
+    "id": "order-104",
+    "orderNumber": "NO-8494",
+    "outletId": "outlet-bhawarkua",
+    "zoneId": "zone-bhw-2",
+    "customerName": "Divya Patel",
+    "customerPhone": "+91 98269 33445",
+    "addressDetails": {
+      "hostelPgOrFlat": "DAVV Takshashila Enclave",
+      "roomNo": "Block B, Room 12",
+      "floor": "Ground",
+      "landmark": "Near University Library Gate",
+      "leaveAtGate": false,
+      "silentDelivery": false,
+      "maskedCall": true
+    },
+    "items": [
+      {
+        "menuItemId": "item-kulhad-chai",
+        "name": "Adrak Elaichi Kulhad Chai (Flask - 2 Cups)",
+        "price": 45,
+        "quantity": 2,
+        "isVeg": true
+      }
+    ],
+    "subtotal": 90,
+    "deliveryFee": 15,
+    "packagingFee": 10,
+    "discount": 0,
+    "total": 115,
+    "orderStatus": "OUT_FOR_DELIVERY",
+    "riderId": "rider-rahul",
+    "riderName": "Pilot Rahul (#08)",
+    "riderPhone": "+91 98263 11223",
+    "paymentMethod": "UPI_INTENT",
+    "paymentStatus": "PAID",
+    "estimatedMins": 10,
+    "createdAt": "2026-10-25T22:20:00.000Z"
+  }
+]

@@ -176,7 +176,7 @@ export function AddAddressModal({
     reverseGeocode(newLat, newLng);
   };
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!houseNo.trim()) {
       setFormError('Please enter your House / Flat / Floor Number.');
       return;
@@ -193,7 +193,7 @@ export function AddAddressModal({
     const formattedAddress = `${houseNo.trim()}, ${building.trim()}, ${street.trim()}, Indore`;
 
     if (isEditMode && addressToEdit) {
-      updateSavedAddress(addressToEdit.id, {
+      await updateSavedAddress(addressToEdit.id, {
         tag,
         houseNo: houseNo.trim(),
         building: building.trim(),
@@ -204,7 +204,7 @@ export function AddAddressModal({
         formattedAddress,
       });
     } else {
-      addSavedAddress({
+      await addSavedAddress({
         tag,
         houseNo: houseNo.trim(),
         building: building.trim(),
@@ -220,9 +220,9 @@ export function AddAddressModal({
     if (onAddressSaved) onAddressSaved();
   };
 
-  const handleDeleteAddress = () => {
+  const handleDeleteAddress = async () => {
     if (addressToEdit) {
-      deleteSavedAddress(addressToEdit.id);
+      await deleteSavedAddress(addressToEdit.id);
       onClose();
       if (onAddressSaved) onAddressSaved();
     }
@@ -231,7 +231,7 @@ export function AddAddressModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
       <div
         className="w-full max-w-md bg-white border-t border-gray-200 rounded-t-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
         role="dialog"

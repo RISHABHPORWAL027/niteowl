@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Order } from '@/types/database';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 import { OrderFilter } from './orders.types';
@@ -12,8 +14,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
-  limit as firestoreLimit,
 } from 'firebase/firestore';
 
 export interface IOrdersRepository {
@@ -23,13 +23,40 @@ export interface IOrdersRepository {
   update(id: string, updates: Partial<Order>): Promise<Order | null>;
 }
 
+const ORDERS_FILE = path.join(process.cwd(), 'data', 'orders.json');
+
+function readOrdersFromDisk(): Order[] {
+  try {
+    if (fs.existsSync(ORDERS_FILE)) {
+      const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn('[OrdersRepo] Error reading orders from disk:', e);
+  }
+  writeOrdersToDisk([]);
+  return [];
+}
+
+function writeOrdersToDisk(orders: Order[]) {
+  try {
+    const dir = path.dirname(ORDERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('[OrdersRepo] Error writing orders to disk:', e);
+  }
+}
+
 // ==============================================================================
-// 1. DEVELOPMENT IN-MEMORY REPOSITORY (Fast local testing & zero cloud latency)
+// 1. DEVELOPMENT / PERSISTENT FILE-BACKED REPOSITORY
 // ==============================================================================
-export class DevelopmentOrdersRepository implements IOrdersRepository {
-  private orders: Order[] = [...INITIAL_ORDERS];
+export class PersistentOrdersRepository implements IOrdersRepository {
+  private orders: Order[] = readOrdersFromDisk();
 
   async findAll(filter?: OrderFilter): Promise<Order[]> {
+    this.orders = readOrdersFromDisk();
     let result = [...this.orders];
 
     if (filter?.outletId && filter.outletId !== 'ALL') {
@@ -86,16 +113,20 @@ export class DevelopmentOrdersRepository implements IOrdersRepository {
   }
 
   async findById(id: string): Promise<Order | null> {
+    this.orders = readOrdersFromDisk();
     const found = this.orders.find((o) => o.id === id || o.orderNumber === id);
     return found ? { ...found } : null;
   }
 
   async create(order: Order): Promise<Order> {
+    this.orders = readOrdersFromDisk();
     this.orders = [order, ...this.orders];
+    writeOrdersToDisk(this.orders);
     return { ...order };
   }
 
   async update(id: string, updates: Partial<Order>): Promise<Order | null> {
+    this.orders = readOrdersFromDisk();
     const index = this.orders.findIndex((o) => o.id === id || o.orderNumber === id);
     if (index === -1) return null;
 
@@ -105,15 +136,16 @@ export class DevelopmentOrdersRepository implements IOrdersRepository {
       updatedAt: new Date().toISOString(),
     };
     this.orders[index] = updated;
+    writeOrdersToDisk(this.orders);
     return { ...updated };
   }
 }
 
 // ==============================================================================
-// 2. FIRESTORE CLOUD REPOSITORY (Production Google Cloud Firestore)
+// 2. FIRESTORE CLOUD REPOSITORY
 // ==============================================================================
 export class FirestoreOrdersRepository implements IOrdersRepository {
-  private fallbackDev = new DevelopmentOrdersRepository();
+  private fallbackDev = new PersistentOrdersRepository();
 
   private getCollection() {
     if (!firestoreDb) {
@@ -144,20 +176,25 @@ export class FirestoreOrdersRepository implements IOrdersRepository {
         q = query(q, where('riderId', '==', filter.riderId));
       }
 
-      const snapshot = await getDocs(q);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore getDocs timeout')), 2000)
+      );
+      const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
       const orders: Order[] = [];
       snapshot.forEach((d) => {
         orders.push(d.data() as Order);
       });
 
-      // In-memory sort & search
       orders.sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
+      if (orders.length === 0) {
+        return this.fallbackDev.findAll(filter);
+      }
+
       return orders;
     } catch (e) {
-      console.warn('Firestore query failed, using development fallback:', e);
       return this.fallbackDev.findAll(filter);
     }
   }
@@ -189,7 +226,6 @@ export class FirestoreOrdersRepository implements IOrdersRepository {
       await setDoc(orderDoc, order);
       return order;
     } catch (e) {
-      console.warn('Firestore create failed, falling back to local memory:', e);
       return this.fallbackDev.create(order);
     }
   }
@@ -213,7 +249,6 @@ export class FirestoreOrdersRepository implements IOrdersRepository {
   }
 }
 
-// Export Singleton Repository instance based on DATABASE_MODE
 export const ordersRepository: IOrdersRepository = isFirestoreEnabled
   ? new FirestoreOrdersRepository()
-  : new DevelopmentOrdersRepository();
+  : new PersistentOrdersRepository();

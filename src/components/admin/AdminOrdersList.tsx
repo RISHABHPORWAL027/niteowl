@@ -20,6 +20,10 @@ import {
   MapPin,
   ChevronDown,
   AlertCircle,
+  AlertTriangle,
+  RefreshCw,
+  ChefHat,
+  Phone,
 } from 'lucide-react';
 import { useNiteOwlStore } from '@/store/useNiteOwlStore';
 import { Order, OrderStatus, Rider } from '@/types/database';
@@ -57,6 +61,9 @@ export function AdminOrdersList({
   const [selectedPilotId, setSelectedPilotId] = useState<string>('');
   const [autoDispatch, setAutoDispatch] = useState<boolean>(true);
   const [bulkFeedbackToast, setBulkFeedbackToast] = useState<string | null>(null);
+
+  // Dedicated Modal for "Assign Pilot & Dispatch" when order is prepared & ready for delivery
+  const [dispatchModalOrder, setDispatchModalOrder] = useState<Order | null>(null);
 
   // Available zones based on currently selected hub
   const hubZones = useMemo(() => {
@@ -481,7 +488,7 @@ export function AdminOrdersList({
             >
               <Send className="w-3.5 h-3.5" />
               <span>
-                Assign Rider ({selectedOrderIds.length})
+                Assign / Reassign Rider ({selectedOrderIds.length})
               </span>
             </button>
 
@@ -687,34 +694,88 @@ export function AdminOrdersList({
                         onClick={(e) => e.stopPropagation()}
                       >
                         {order.riderName && order.riderName !== 'Assigning pilot...' ? (
-                          <div className="flex items-center gap-1.5">
-                            <Bike className="w-3.5 h-3.5 text-[#75cf5e] shrink-0" />
-                            <span className="font-bold text-[#e5f4eb] truncate max-w-[110px]">
-                              {order.riderName}
-                            </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1 text-[#e5f4eb] font-bold">
+                              <Bike className="w-3.5 h-3.5 text-[#75cf5e] shrink-0" />
+                              <span className="truncate max-w-[95px]">{order.riderName}</span>
+                            </div>
+                            {isEligibleForAssignment && (
+                              <select
+                                defaultValue=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    bulkAssignRider([order.id], e.target.value);
+                                    const newP = ridersList.find((r) => r.id === e.target.value);
+                                    setBulkFeedbackToast(
+                                      `⚡ Reassigned Order #${order.orderNumber} to ${newP?.name || 'new pilot'}!`
+                                    );
+                                  }
+                                }}
+                                className="bg-[#0c0e0d] hover:bg-[#1f2421] border border-[#1c211e] hover:border-amber-400 text-[#88998f] hover:text-amber-300 rounded px-1.5 py-0.5 text-[10px] font-bold outline-none cursor-pointer transition-colors"
+                                title="Wrongly assigned? Click to change pilot"
+                              >
+                                <option value="" disabled>
+                                  Change ▾
+                                </option>
+                                {availablePilots.map((p) => (
+                                  <option key={p.id} value={p.id} className="bg-[#151917] text-[#e5f4eb]">
+                                    {p.name} {p.name === order.riderName ? '(Current)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                         ) : isEligibleForAssignment ? (
-                          /* Quick In-Row Assign Dropdown */
-                          <select
-                            defaultValue=""
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                bulkAssignRider([order.id], e.target.value, {
-                                  updateStatus: isPlaced ? 'PREPARING' : undefined,
-                                });
-                              }
-                            }}
-                            className="bg-[#0c0e0d] hover:bg-[#1a201c] border border-amber-500/40 hover:border-amber-400 text-amber-300 rounded-lg px-2 py-1 text-[11px] font-bold outline-none cursor-pointer"
-                          >
-                            <option value="" disabled>
-                              + Assign Pilot
-                            </option>
-                            {availablePilots.map((p) => (
-                              <option key={p.id} value={p.id} className="bg-[#151917] text-[#e5f4eb]">
-                                {p.name}
+                          isPreparing ? (
+                            /* Mandatory warning & assign dropdown for prepared/preparing order */
+                            <div className="flex items-center gap-1">
+                              <select
+                                defaultValue=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    bulkAssignRider([order.id], e.target.value);
+                                    const p = ridersList.find((r) => r.id === e.target.value);
+                                    setBulkFeedbackToast(`⚡ Assigned ${p?.name} to Order #${order.orderNumber}!`);
+                                  }
+                                }}
+                                className="bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/60 hover:border-amber-400 text-amber-300 rounded-lg px-2 py-1 text-[11px] font-bold outline-none cursor-pointer"
+                                title="Food is prepared. Pilot assignment is required before dispatch!"
+                              >
+                                <option value="" disabled>
+                                  ⚠️ Assign Pilot (Must)
+                                </option>
+                                {availablePilots.map((p) => (
+                                  <option key={p.id} value={p.id} className="bg-[#151917] text-[#e5f4eb]">
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : (
+                            /* Quick In-Row Assign Dropdown for Placed */
+                            <select
+                              defaultValue=""
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  bulkAssignRider([order.id], e.target.value, {
+                                    updateStatus: isPlaced ? 'PREPARING' : undefined,
+                                  });
+                                  const p = ridersList.find((r) => r.id === e.target.value);
+                                  setBulkFeedbackToast(`⚡ Assigned ${p?.name} to Order #${order.orderNumber}!`);
+                                }
+                              }}
+                              className="bg-[#0c0e0d] hover:bg-[#1a201c] border border-emerald-500/30 hover:border-[#75cf5e] text-emerald-300 rounded-lg px-2 py-1 text-[11px] font-bold outline-none cursor-pointer"
+                            >
+                              <option value="" disabled>
+                                + Assign Pilot
                               </option>
-                            ))}
-                          </select>
+                              {availablePilots.map((p) => (
+                                <option key={p.id} value={p.id} className="bg-[#151917] text-[#e5f4eb]">
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          )
                         ) : (
                           <span className="text-[#88998f] italic text-[11px]">Unassigned</span>
                         )}
@@ -736,17 +797,33 @@ export function AdminOrdersList({
                             </button>
                           )}
                           {isPreparing && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateOrderStatus(order.id, 'OUT_FOR_DELIVERY', {
-                                  riderName: order.riderName || availablePilots[0]?.name || 'Pilot Suresh',
-                                })
-                              }
-                              className="px-2.5 py-1 rounded-lg bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-bold text-[10px] transition-all cursor-pointer shadow-xs"
-                            >
-                              Dispatch
-                            </button>
+                            order.riderName && order.riderName !== 'Assigning pilot...' ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateOrderStatus(order.id, 'OUT_FOR_DELIVERY', {
+                                    riderName: order.riderName,
+                                    riderPhone: order.riderPhone,
+                                    riderId: order.riderId,
+                                  })
+                                }
+                                className="px-2.5 py-1 rounded-lg bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-bold text-[10px] transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                                title={`Dispatch order with ${order.riderName}`}
+                              >
+                                <Bike className="w-3 h-3" />
+                                <span>Dispatch</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDispatchModalOrder(order)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0c0e0d] font-black text-[10px] transition-all cursor-pointer shadow-xs flex items-center gap-1 animate-pulse"
+                                title="Order is prepared and ready for delivery. Assign a pilot to dispatch!"
+                              >
+                                <Bike className="w-3 h-3" />
+                                <span>Assign &amp; Dispatch</span>
+                              </button>
+                            )
                           )}
                           {isOutForDelivery && (
                             <button
@@ -824,6 +901,169 @@ export function AdminOrdersList({
           </div>
         </div>
       </div>
+
+      {/* Modal: Prepared Order Ready for Delivery - Require Pilot Selection */}
+      {dispatchModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#151917] border border-[#1c211e] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-[#e5f4eb] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 border-b border-[#1c211e] bg-[#111413] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center font-bold">
+                  <Bike className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-mono font-black text-sm text-[#75cf5e]">
+                      {dispatchModalOrder.orderNumber}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-950/80 text-amber-400 border border-amber-500/40">
+                      Prepared &bull; Ready for Delivery
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#88998f]">
+                    {dispatchModalOrder.customerName} &bull; {dispatchModalOrder.addressDetails.hostelPgOrFlat}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchModalOrder(null)}
+                className="p-1.5 rounded-xl bg-[#0c0e0d] text-[#88998f] hover:text-[#e5f4eb] border border-[#1c211e] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mandatory Instruction Banner */}
+            <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <p className="font-bold">Assign Delivery Pilot (Required)</p>
+                <p className="text-[11px] text-amber-300/80">
+                  Food is prepared and packed at the counter. Select which pilot is carrying this order to dispatch live tracking.
+                </p>
+              </div>
+            </div>
+
+            {/* Order Brief Summary */}
+            <div className="p-4 border-b border-[#1c211e] bg-[#0c0e0d] flex items-center justify-between text-xs">
+              <div className="truncate pr-3">
+                <span className="text-[#88998f]">Items: </span>
+                <span className="font-semibold text-[#e5f4eb] truncate">
+                  {dispatchModalOrder.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[#88998f] block text-[10px]">Total Bill</span>
+                <span className="font-mono font-black text-sm text-[#75cf5e]">
+                  ₹{dispatchModalOrder.total}
+                </span>
+              </div>
+            </div>
+
+            {/* Pilot Roster Selection */}
+            <div className="p-4 space-y-2.5 max-h-[380px] overflow-y-auto">
+              <h4 className="text-[10px] font-bold text-[#88998f] uppercase tracking-wider">
+                Select Available Pilot
+              </h4>
+
+              {availablePilots.length === 0 ? (
+                <div className="p-6 text-center text-[#88998f] text-xs">
+                  No registered pilots found for this hub. Please add a pilot in the Riders tab.
+                </div>
+              ) : (
+                availablePilots.map((pilot) => {
+                  const activeLoad = getPilotActiveLoad(pilot.name);
+                  const isAvailable = pilot.status === 'AVAILABLE';
+
+                  return (
+                    <div
+                      key={pilot.id}
+                      className="p-3 rounded-xl bg-[#0c0e0d] hover:bg-[#1a201c] border border-[#1c211e] hover:border-[#75cf5e]/40 transition-all flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isAvailable
+                              ? 'bg-emerald-950/80 text-[#75cf5e] border border-[#239a4e]/40'
+                              : 'bg-sky-950/80 text-sky-400 border border-sky-500/40'
+                          }`}
+                        >
+                          <Bike className="w-4 h-4" />
+                        </div>
+                        <div className="truncate">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[#e5f4eb] truncate">
+                              {pilot.name}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                                isAvailable
+                                  ? 'bg-emerald-950/80 text-[#75cf5e]'
+                                  : 'bg-sky-950/80 text-sky-400'
+                              }`}
+                            >
+                              {pilot.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-[#88998f] truncate mt-0.5">
+                            {pilot.vehicle} &bull; {activeLoad} active {activeLoad === 1 ? 'load' : 'loads'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            bulkAssignRider([dispatchModalOrder.id], pilot.id, {
+                              updateStatus: 'OUT_FOR_DELIVERY',
+                            });
+                            setBulkFeedbackToast(
+                              `⚡ Dispatched Order #${dispatchModalOrder.orderNumber} with ${pilot.name}!`
+                            );
+                            setDispatchModalOrder(null);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#75cf5e] hover:bg-[#68bc53] text-[#0c0e0d] font-black text-xs transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Dispatch</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            bulkAssignRider([dispatchModalOrder.id], pilot.id);
+                            setBulkFeedbackToast(
+                              `⚡ Assigned ${pilot.name} to Order #${dispatchModalOrder.orderNumber} (Ready in kitchen)`
+                            );
+                            setDispatchModalOrder(null);
+                          }}
+                          className="px-2 py-1.5 rounded-lg bg-[#151917] hover:bg-[#202723] text-[#88998f] hover:text-[#e5f4eb] border border-[#1c211e] text-[10px] font-bold transition-colors cursor-pointer"
+                          title="Assign pilot without immediately dispatching"
+                        >
+                          Assign Only
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-[#1c211e] bg-[#111413] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDispatchModalOrder(null)}
+                className="px-3.5 py-1.5 rounded-xl bg-[#0c0e0d] hover:bg-[#1a201c] text-[#88998f] hover:text-[#e5f4eb] border border-[#1c211e] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

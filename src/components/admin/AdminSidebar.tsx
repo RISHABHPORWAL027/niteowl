@@ -303,6 +303,19 @@ export function AdminSidebar({
           <ExternalLink className="w-3 h-3" />
         </Link>
 
+        {/* Rider / Pilot Delivery App */}
+        <Link
+          href="/rider"
+          target="_blank"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-[#75cf5e] bg-[#181f1b] hover:bg-[#202924] border border-[#239a4e]/30 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Bike className="w-3.5 h-3.5 text-[#75cf5e]" />
+            <span>Pilot App (/rider)</span>
+          </div>
+          <ExternalLink className="w-3 h-3" />
+        </Link>
+
         {/* Logout */}
         <button
           type="button"

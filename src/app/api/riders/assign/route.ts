@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fleetService } from '@/services/fleet/fleet.service';
+import { verifyRequestAuth } from '@/lib/authTokens';
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await verifyRequestAuth(req);
+    if (!auth.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Hub Manager access required to dispatch fleet.' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { orderIds, riderId, autoDispatch } = body;
 

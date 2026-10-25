@@ -220,10 +220,13 @@ function LoginForm() {
       // Clear rate limit upon successful verification
       clearOtpRateLimit(cleanPhone);
 
-      // Save customer user to store
+      // Save customer user to store with a creative Foodiee name
       setCustomerUser({
         uid: verifiedUid,
-        displayName: `Customer (+91 ${cleanPhone.slice(-4)})`,
+        displayName:
+          cleanPhone === '9876543210'
+            ? 'Midnight Foodiee'
+            : `Foodiee (+91 ${cleanPhone.slice(-4)})`,
         email: null,
         photoURL: null,
         phoneNumber: `+91 ${cleanPhone}`,
@@ -274,7 +277,7 @@ function LoginForm() {
       if (user) {
         setCustomerUser({
           uid: user.uid,
-          displayName: user.displayName || 'NiteOwl Diner',
+          displayName: user.displayName || 'Midnight Foodiee',
           email: user.email,
           photoURL: user.photoURL,
           phoneNumber: user.phoneNumber,
@@ -552,7 +555,7 @@ function LoginForm() {
                 className="w-full h-10 bg-[#F6F6F6] hover:bg-[#EFEFEF] active:bg-[#E8E8E8] text-[#545454] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <User className="w-4 h-4 text-[#545454]" />
-                <span>Demo Customer Auto-fill (9876543210)</span>
+                <span>Demo Foodiee Auto-fill (9876543210)</span>
               </button>
             </div>
           </div>

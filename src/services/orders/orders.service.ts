@@ -2,6 +2,7 @@ import { Order, OrderStatus } from '@/types/database';
 import { ordersRepository, IOrdersRepository } from './orders.repository';
 import { CreateOrderDto, OrderFilter, UpdateOrderDto } from './orders.types';
 import { realtimeHub } from '@/lib/realtimeSync';
+import { menuRepository } from '@/services/menu/menu.repository';
 
 export class OrdersService {
   constructor(private repo: IOrdersRepository = ordersRepository) {}
@@ -27,9 +28,29 @@ export class OrdersService {
     if (!dto.customerPhone || !dto.customerPhone.trim()) {
       throw new Error('Customer phone number is required');
     }
-    if (typeof dto.total !== 'number' || isNaN(dto.total) || dto.total < 0) {
-      throw new Error('Valid order total is required');
+    let verifiedSubtotal = 0;
+    const verifiedItems = await Promise.all(
+      dto.items.map(async (item) => {
+        const dbItem = await menuRepository.findById(item.menuItemId);
+        const unitPrice = dbItem ? dbItem.basePrice : Number(item.price || 0);
+        const qty = Math.max(1, Number(item.quantity || 1));
+        verifiedSubtotal += unitPrice * qty;
+        return {
+          ...item,
+          price: unitPrice,
+          quantity: qty,
+        };
+      })
+    );
+
+    if (verifiedSubtotal < 89) {
+      throw new Error('Minimum order value is ₹89. Subtotal is below minimum threshold.');
     }
+
+    const deliveryFee = typeof dto.deliveryFee === 'number' ? dto.deliveryFee : 15;
+    const packagingFee = typeof dto.packagingFee === 'number' ? dto.packagingFee : 10;
+    const discount = typeof dto.discount === 'number' ? dto.discount : 0;
+    const verifiedTotal = verifiedSubtotal + deliveryFee + packagingFee - discount;
 
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const prefix = dto.outletId.includes('vijay')
@@ -44,15 +65,15 @@ export class OrdersService {
       orderNumber,
       outletId: dto.outletId,
       zoneId: dto.zoneId,
-      customerName: dto.customerName,
-      customerPhone: dto.customerPhone,
+      customerName: dto.customerName.trim().slice(0, 100),
+      customerPhone: dto.customerPhone.trim().replace(/[^\d+]/g, '').slice(0, 15),
       addressDetails: dto.addressDetails,
-      items: dto.items,
-      subtotal: dto.subtotal,
-      deliveryFee: dto.deliveryFee,
-      packagingFee: dto.packagingFee,
-      discount: dto.discount || 0,
-      total: dto.total,
+      items: verifiedItems,
+      subtotal: verifiedSubtotal,
+      deliveryFee,
+      packagingFee,
+      discount,
+      total: verifiedTotal,
       orderStatus: 'PLACED',
       paymentMethod: dto.paymentMethod || 'RAZORPAY',
       paymentStatus: dto.paymentStatus || 'PAID',

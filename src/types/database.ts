@@ -68,6 +68,23 @@ export interface MenuItem {
   ratingCount: number;
   prepTimeMin: number;
   tag?: string; // e.g., "Bestseller", "Midnight Fuel", "Midnight Special"
+  outletId?: string; // e.g., "outlet-bhawarkua"
+  isAvailableTonight?: boolean;
+}
+
+export interface SavedAddress {
+  id: string;
+  userId?: string;
+  tag: 'Home' | 'Work' | 'Apartment' | 'Hostel / PG' | 'Other';
+  houseNo: string;
+  building: string;
+  street: string;
+  landmark: string;
+  lat?: number;
+  lng?: number;
+  formattedAddress: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OutletInventory {

@@ -13,6 +13,7 @@ import {
   Zone,
   Rider,
   RiderStatus,
+  SavedAddress,
 } from '@/types/database';
 import {
   INITIAL_ORDERS,
@@ -47,31 +48,23 @@ export interface CustomerUser {
   phoneNumber?: string | null;
 }
 
-export interface SavedAddress {
-  id: string;
-  tag: 'Home' | 'Work' | 'Apartment' | 'Hostel / PG' | 'Other';
-  houseNo: string;
-  building: string;
-  street: string;
-  landmark: string;
-  lat?: number;
-  lng?: number;
-  formattedAddress: string;
-}
+export type { SavedAddress };
 
 export interface NiteOwlState {
   // Customer Auth State
   customerUser: CustomerUser | null;
   isCustomerAuthenticated: boolean;
   setCustomerUser: (user: CustomerUser | null) => void;
+  updateCustomerDisplayName: (name: string) => void;
   customerLogout: () => void;
 
   // Saved Addresses
   savedAddresses: SavedAddress[];
   activeAddress: SavedAddress | null;
-  addSavedAddress: (addr: Omit<SavedAddress, 'id'>) => SavedAddress;
-  updateSavedAddress: (addressId: string, updatedData: Partial<Omit<SavedAddress, 'id'>>) => void;
-  deleteSavedAddress: (addressId: string) => void;
+  fetchAddresses: (userId?: string) => Promise<void>;
+  addSavedAddress: (addr: Omit<SavedAddress, 'id'>) => Promise<SavedAddress>;
+  updateSavedAddress: (addressId: string, updatedData: Partial<Omit<SavedAddress, 'id'>>) => Promise<void>;
+  deleteSavedAddress: (addressId: string) => Promise<void>;
   selectSavedAddress: (addressId: string) => void;
 
   // Outlets & Zones
@@ -90,6 +83,7 @@ export interface NiteOwlState {
   // Menu Catalog
   menuItems: MenuItem[];
   selectedCategory: string;
+  fetchMenuItems: (outletId?: string, category?: string) => Promise<void>;
 
   // Cart State
   cart: CartItem[];
@@ -152,7 +146,7 @@ export interface NiteOwlState {
   updateOrderStatus: (
     orderId: string,
     newStatus: OrderStatus,
-    extra?: { riderName?: string; riderPhone?: string }
+    extra?: { riderName?: string; riderPhone?: string; riderId?: string }
   ) => void;
   placeOrder: (details: {
     customerName: string;
@@ -188,17 +182,7 @@ export const useNiteOwlStore = create<NiteOwlState>()(
       menuItems: MOCK_MENU_ITEMS,
       selectedCategory: 'ALL',
 
-      cart: [
-        {
-          menuItemId: 'item-maggi-cheese',
-          name: 'Double Cheese Butter Maggi',
-          price: 70,
-          quantity: 1,
-          isVeg: true,
-          imageUrl:
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuCZD7yvAw45b5dP4A6OF6KDG4yz-iC4KuCEB3EVttTH0r3Sk5hRYQE90AT6ugB4GJ88AXgBjQGoM41bbzNr-EuPO5etZ5GBqNUxHmmTLcH2xtqMMsVKDWM14cXuwItkpRht7S1b_IFUsTgnCZP_9xaDRoHU-Ijsrqx24lTDmXsQ2lPccDyCYSh2SbuW9ZaQ4QlT9-9Nca9wEbqwt3PFfHR0kNmiu7YHpornuUd5gnSzk_ai741q2G5E',
-        },
-      ],
+      cart: [],
       packagingFee: 5,
       appliedDiscount: 0,
 
@@ -214,65 +198,40 @@ export const useNiteOwlStore = create<NiteOwlState>()(
           customerUser: user,
           isCustomerAuthenticated: Boolean(user),
         });
+        if (user) {
+          get().fetchAddresses(user.uid);
+        }
+      },
+      updateCustomerDisplayName: (name: string) => {
+        const { customerUser } = get();
+        if (customerUser) {
+          set({
+            customerUser: {
+              ...customerUser,
+              displayName: name.trim() || 'Midnight Foodiee',
+            },
+          });
+        }
       },
       customerLogout: () => {
         set({
           customerUser: null,
           isCustomerAuthenticated: false,
           activeOrder: null,
+          savedAddresses: [],
+          activeAddress: null,
         });
       },
 
-      // Saved Addresses
-      savedAddresses: [
-        {
-          id: 'addr-default-1',
-          tag: 'Apartment',
-          houseNo: 'Flat 204, 2nd Floor',
-          building: 'Gayatri Heights',
-          street: 'Bholaram Ustad Marg',
-          landmark: 'Bholaram Ustad Marg',
-          lat: 22.6938,
-          lng: 75.8654,
-          formattedAddress: 'Flat 204, Gayatri Heights, Bholaram Ustad Marg, Indore',
-        },
-        {
-          id: 'addr-default-2',
-          tag: 'Home',
-          houseNo: 'Flat 302, 3rd Floor',
-          building: 'Shree Krishna Heights',
-          street: 'Vishnu Puri NX',
-          landmark: 'Vishnu Puri NX',
-          lat: 22.6882,
-          lng: 75.8621,
-          formattedAddress: 'Flat 302, Shree Krishna Heights, Vishnu Puri NX, Indore',
-        },
-        {
-          id: 'addr-default-3',
-          tag: 'Work',
-          houseNo: 'Suite 204',
-          building: 'Tower Square Workspace',
-          street: 'Tower Square Crossing',
-          landmark: 'Tower Square Crossing',
-          lat: 22.6942,
-          lng: 75.8691,
-          formattedAddress: 'Suite 204, Tower Square Workspace, Bhawarkua, Indore',
-        },
-      ],
+      // Saved Addresses (Fetched from backend)
+      savedAddresses: [],
       activeAddress: null,
 
       // Admin Auth State
       isAdminAuthenticated: false,
       adminLogin: (passcode: string) => {
-        // Accept valid manager PIN or demo email/passcode (e.g. "4400", "bhawarkua", "admin", "niteowl")
-        const clean = passcode.trim().toLowerCase();
-        if (
-          clean === '4400' ||
-          clean === 'bhawarkua' ||
-          clean === 'admin' ||
-          clean === 'niteowl' ||
-          clean === 'hub-manager@niteowl.in'
-        ) {
+        // Authenticated state is set upon verified response from /api/admin/login
+        if (passcode.trim()) {
           set({ isAdminAuthenticated: true });
           return true;
         }
@@ -450,12 +409,81 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         });
       },
 
-      addSavedAddress: (addrData) => {
-        const id = `addr-${Date.now()}`;
-        const newAddress: SavedAddress = {
-          id,
-          ...addrData,
-        };
+      fetchMenuItems: async (outletId?: string, category?: string) => {
+        try {
+          const res = await apiClient.menu.list({
+            outletId: outletId || get().currentOutlet.id,
+            category: category && category !== 'ALL' ? category : undefined,
+          });
+          if (res?.success && Array.isArray(res.items)) {
+            set({ menuItems: res.items });
+          }
+        } catch (err) {
+          console.warn('[Microservice Sync] Fetch menu error:', err);
+        }
+      },
+
+      fetchAddresses: async (userId?: string) => {
+        try {
+          const targetUid = userId || get().customerUser?.uid;
+          const res = await apiClient.addresses.list(targetUid);
+          if (res?.success && Array.isArray(res.addresses)) {
+            set((state) => {
+              const active =
+                state.activeAddress && res.addresses.some((a) => a.id === state.activeAddress?.id)
+                  ? state.activeAddress
+                  : res.addresses[0] || null;
+
+              let targetOutlet = state.currentOutlet;
+              let targetZone = state.currentZone;
+              let distanceKm = state.distanceKm;
+              let isOutOfDelivery = state.isOutOfDelivery;
+              let selectedLandmark = state.selectedLandmark;
+
+              if (active) {
+                selectedLandmark = active.building || active.landmark;
+                if (active.lat && active.lng) {
+                  const resolved = resolveZoneByCoords(active.lat, active.lng, state.outlets, state.zonesMap);
+                  if (resolved) {
+                    targetOutlet = resolved.outlet;
+                    targetZone = resolved.zone;
+                    distanceKm = resolved.distanceKm;
+                    isOutOfDelivery = !resolved.isCovered;
+                  }
+                }
+              }
+
+              return {
+                savedAddresses: res.addresses,
+                activeAddress: active,
+                selectedLandmark,
+                currentOutlet: targetOutlet,
+                currentZone: targetZone,
+                distanceKm,
+                isOutOfDelivery,
+              };
+            });
+          }
+        } catch (err) {
+          console.warn('[Microservice Sync] Fetch addresses error:', err);
+        }
+      },
+
+      addSavedAddress: async (addrData) => {
+        let createdAddr: SavedAddress;
+        try {
+          createdAddr = await apiClient.addresses.create({
+            ...addrData,
+            userId: get().customerUser?.uid,
+          });
+        } catch (err) {
+          console.warn('[Microservice Sync] Create address error, fallback locally:', err);
+          createdAddr = {
+            id: `addr-${Date.now()}`,
+            userId: get().customerUser?.uid,
+            ...addrData,
+          };
+        }
 
         const { outlets, zonesMap } = get();
         let targetOutlet = get().currentOutlet;
@@ -463,16 +491,16 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         let distanceKm = get().distanceKm;
         let isOutOfDelivery = false;
 
-        if (addrData.lat && addrData.lng) {
-          const res = resolveZoneByCoords(addrData.lat, addrData.lng, outlets, zonesMap);
+        if (createdAddr.lat && createdAddr.lng) {
+          const res = resolveZoneByCoords(createdAddr.lat, createdAddr.lng, outlets, zonesMap);
           if (res) {
             targetOutlet = res.outlet;
             targetZone = res.zone;
             distanceKm = res.distanceKm;
             isOutOfDelivery = !res.isCovered;
           }
-        } else if (addrData.landmark) {
-          const res = resolveZoneByLandmark(addrData.landmark, outlets, zonesMap);
+        } else if (createdAddr.landmark) {
+          const res = resolveZoneByLandmark(createdAddr.landmark, outlets, zonesMap);
           if (res) {
             targetOutlet = res.outlet;
             targetZone = res.zone;
@@ -482,16 +510,16 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         }
 
         set((state) => ({
-          savedAddresses: [newAddress, ...state.savedAddresses],
-          activeAddress: newAddress,
-          selectedLandmark: newAddress.building || newAddress.landmark,
+          savedAddresses: [createdAddr, ...state.savedAddresses.filter((a) => a.id !== createdAddr.id)],
+          activeAddress: createdAddr,
+          selectedLandmark: createdAddr.building || createdAddr.landmark,
           currentOutlet: targetOutlet,
           currentZone: targetZone,
           distanceKm,
           isOutOfDelivery,
         }));
 
-        return newAddress;
+        return createdAddr;
       },
 
       selectSavedAddress: (addressId: string) => {
@@ -532,7 +560,7 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         });
       },
 
-      updateSavedAddress: (addressId: string, updatedData: Partial<Omit<SavedAddress, 'id'>>) => {
+      updateSavedAddress: async (addressId: string, updatedData: Partial<Omit<SavedAddress, 'id'>>) => {
         const { savedAddresses, outlets, zonesMap, activeAddress } = get();
         const existing = savedAddresses.find((a) => a.id === addressId);
         if (!existing) return;
@@ -544,6 +572,10 @@ export const useNiteOwlStore = create<NiteOwlState>()(
             updatedData.formattedAddress ||
             `${(updatedData.houseNo ?? existing.houseNo).trim()}, ${(updatedData.building ?? existing.building).trim()}, ${(updatedData.street ?? existing.street).trim()}, Indore`,
         };
+
+        apiClient.addresses.update(addressId, updatedData).catch((err) => {
+          console.warn('[Microservice Sync] Update address error:', err);
+        });
 
         const newSaved = savedAddresses.map((a) => (a.id === addressId ? updated : a));
 
@@ -581,7 +613,11 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         set(stateUpdates);
       },
 
-      deleteSavedAddress: (addressId: string) => {
+      deleteSavedAddress: async (addressId: string) => {
+        apiClient.addresses.delete(addressId).catch((err) => {
+          console.warn('[Microservice Sync] Delete address error:', err);
+        });
+
         const { savedAddresses, activeAddress } = get();
         const filtered = savedAddresses.filter((a) => a.id !== addressId);
         const nextActive =
@@ -721,6 +757,15 @@ export const useNiteOwlStore = create<NiteOwlState>()(
 
         set((s) => {
           const currentRiders = s.riders?.length ? s.riders : INITIAL_RIDERS;
+          
+          // Track previous riders of the orders being reassigned
+          const previousRiderIds = new Set<string>();
+          s.orders.forEach((o) => {
+            if (orderIds.includes(o.id) && o.riderId && o.riderId !== riderId) {
+              previousRiderIds.add(o.riderId);
+            }
+          });
+
           const updatedOrders = s.orders.map((o) => {
             if (orderIds.includes(o.id)) {
               return {
@@ -745,10 +790,25 @@ export const useNiteOwlStore = create<NiteOwlState>()(
                 }
               : s.activeOrder;
 
-          // Set rider status to ON_DELIVERY if active delivery exists
-          const updatedRiders = currentRiders.map((r) =>
-            r.id === riderId ? { ...r, status: 'ON_DELIVERY' as RiderStatus } : r
-          );
+          // Set new rider duty state to ON_DELIVERY.
+          // For any previous riders, if they have no other active deliveries left, revert to AVAILABLE.
+          const updatedRiders = currentRiders.map((r) => {
+            if (r.id === riderId) {
+              return { ...r, status: 'ON_DELIVERY' as RiderStatus };
+            }
+            if (previousRiderIds.has(r.id)) {
+              const remainingActive = updatedOrders.filter(
+                (o) =>
+                  o.riderId === r.id &&
+                  o.orderStatus !== 'DELIVERED' &&
+                  o.orderStatus !== 'CANCELLED'
+              );
+              if (remainingActive.length === 0) {
+                return { ...r, status: 'AVAILABLE' as RiderStatus };
+              }
+            }
+            return r;
+          });
 
           return {
             orders: updatedOrders,
@@ -784,7 +844,7 @@ export const useNiteOwlStore = create<NiteOwlState>()(
       updateOrderStatus: (
         orderId: string,
         newStatus: OrderStatus,
-        extra?: { riderName?: string; riderPhone?: string }
+        extra?: { riderName?: string; riderPhone?: string; riderId?: string }
       ) => {
         set((state) => {
           const updatedOrders = state.orders.map((o) =>
@@ -792,6 +852,7 @@ export const useNiteOwlStore = create<NiteOwlState>()(
               ? {
                   ...o,
                   orderStatus: newStatus,
+                  ...(extra?.riderId ? { riderId: extra.riderId } : {}),
                   ...(extra?.riderName ? { riderName: extra.riderName } : {}),
                   ...(extra?.riderPhone ? { riderPhone: extra.riderPhone } : {}),
                 }
@@ -802,6 +863,7 @@ export const useNiteOwlStore = create<NiteOwlState>()(
               ? {
                   ...state.activeOrder,
                   orderStatus: newStatus,
+                  ...(extra?.riderId ? { riderId: extra.riderId } : {}),
                   ...(extra?.riderName ? { riderName: extra.riderName } : {}),
                   ...(extra?.riderPhone ? { riderPhone: extra.riderPhone } : {}),
                 }
@@ -937,18 +999,21 @@ export const useNiteOwlStore = create<NiteOwlState>()(
 
       syncWithBackend: async () => {
         try {
-          const [ordersRes, hubsRes, fleetRes] = await Promise.all([
+          const currentHubId = get().currentOutlet?.id || 'outlet-bhawarkua';
+          const userId = get().customerUser?.uid;
+
+          const [ordersRes, hubsRes, fleetRes, menuRes, addrRes] = await Promise.all([
             apiClient.orders.list().catch(() => null),
             apiClient.hubs.list().catch(() => null),
             apiClient.fleet.list().catch(() => null),
+            apiClient.menu.list({ outletId: currentHubId }).catch(() => null),
+            apiClient.addresses.list(userId).catch(() => null),
           ]);
 
           set((state) => {
             const updates: Partial<NiteOwlState> = {};
-            if (ordersRes?.success && ordersRes.orders && ordersRes.orders.length > 0) {
-              const remoteIds = new Set(ordersRes.orders.map((o) => o.id));
-              const localOnly = state.orders.filter((o) => !remoteIds.has(o.id));
-              updates.orders = [...ordersRes.orders, ...localOnly];
+            if (ordersRes?.success && Array.isArray(ordersRes.orders)) {
+              updates.orders = ordersRes.orders;
             }
             if (hubsRes?.success && hubsRes.outlets && hubsRes.outlets.length > 0) {
               updates.outlets = hubsRes.outlets;
@@ -956,6 +1021,16 @@ export const useNiteOwlStore = create<NiteOwlState>()(
             }
             if (fleetRes?.success && fleetRes.riders && fleetRes.riders.length > 0) {
               updates.riders = fleetRes.riders;
+            }
+            if (menuRes?.success && menuRes.items && menuRes.items.length > 0) {
+              updates.menuItems = menuRes.items;
+            }
+            if (addrRes?.success && Array.isArray(addrRes.addresses)) {
+              updates.savedAddresses = addrRes.addresses;
+              if (!state.activeAddress && addrRes.addresses.length > 0) {
+                updates.activeAddress = addrRes.addresses[0];
+                updates.selectedLandmark = addrRes.addresses[0].building || addrRes.addresses[0].landmark;
+              }
             }
             return updates;
           });
@@ -981,11 +1056,44 @@ export const useNiteOwlStore = create<NiteOwlState>()(
         riders: state.riders,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state && state.orders) {
-          const existingIds = new Set(state.orders.map((o) => o.id));
-          const missing = INITIAL_ORDERS.filter((o) => !existingIds.has(o.id));
-          if (missing.length > 0) {
-            state.orders = [...state.orders, ...missing];
+        if (state) {
+          // Purge legacy mock addresses from localstorage
+          if (state.savedAddresses) {
+            state.savedAddresses = state.savedAddresses.filter(
+              (a) => !a.id.startsWith('addr-default-')
+            );
+          }
+          // Ensure only Bhawarkua hub is active
+          state.outlets = INITIAL_OUTLETS;
+          state.zonesMap = INITIAL_ZONES;
+          state.currentOutlet = INITIAL_OUTLETS[0];
+          if (!state.currentZone || !INITIAL_ZONES['outlet-bhawarkua'].some((z) => z.id === state.currentZone.id)) {
+            state.currentZone = INITIAL_ZONES['outlet-bhawarkua'][0];
+          } else {
+            state.currentZone.minOrderValue = 89;
+          }
+          if (state.orders) {
+            // Purge legacy mock orders starting with ord-894 and ensure only Bhawarkua orders
+            state.orders = state.orders.filter(
+              (o) => !o.id.startsWith('ord-894') && (!o.outletId || o.outletId === 'outlet-bhawarkua')
+            );
+          }
+          if (state.riders) {
+            // Keep only Bhawarkua riders
+            state.riders = state.riders.filter(
+              (r) => !r.outletId || r.outletId === 'outlet-bhawarkua'
+            );
+          }
+          // Normalize default customer name from generic/student to creative Foodiee name
+          if (
+            state.customerUser &&
+            (!state.customerUser.displayName ||
+              state.customerUser.displayName.toLowerCase().includes('student') ||
+              state.customerUser.displayName.startsWith('Customer') ||
+              state.customerUser.displayName === 'Midnight Diner Member' ||
+              state.customerUser.displayName === 'NiteOwl Diner')
+          ) {
+            state.customerUser.displayName = 'Midnight Foodiee';
           }
         }
       },

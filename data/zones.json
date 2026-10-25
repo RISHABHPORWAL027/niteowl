@@ -1,0 +1,66 @@
+{
+  "outlet-bhawarkua": [
+    {
+      "id": "zone-bhw-1",
+      "outletId": "outlet-bhawarkua",
+      "name": "Zone 1: Bholaram Core (< 800m)",
+      "zoneCode": "ZONE_1",
+      "radiusKm": 0.8,
+      "minRadiusKm": 0,
+      "landmarksCovered": [
+        "Bholaram Ustad Marg",
+        "Tower Square Crossing",
+        "Panchsheel Colony",
+        "Ganesh Nagar",
+        "Radha Krishna Complex",
+        "Maa Gayatri PG"
+      ],
+      "minOrderValue": 89,
+      "deliveryFee": 0,
+      "freeDeliveryThreshold": 89,
+      "estimatedDeliveryMins": 12,
+      "isActive": true
+    },
+    {
+      "id": "zone-bhw-2",
+      "outletId": "outlet-bhawarkua",
+      "name": "Zone 2: Vishnu Puri & Transit (800m - 1.5km)",
+      "zoneCode": "ZONE_2",
+      "radiusKm": 1.5,
+      "minRadiusKm": 0.8,
+      "landmarksCovered": [
+        "Vishnu Puri NX",
+        "Indrapuri Colony",
+        "Rajiv Gandhi Square",
+        "Shivani Residency",
+        "DAVV Takshashila Enclave",
+        "Professor Colony"
+      ],
+      "minOrderValue": 89,
+      "deliveryFee": 15,
+      "freeDeliveryThreshold": 149,
+      "estimatedDeliveryMins": 18,
+      "isActive": true
+    },
+    {
+      "id": "zone-bhw-3",
+      "outletId": "outlet-bhawarkua",
+      "name": "Zone 3: Outer Radius (1.5km - 2.0km)",
+      "zoneCode": "ZONE_3",
+      "radiusKm": 2,
+      "minRadiusKm": 1.5,
+      "landmarksCovered": [
+        "Navlakha Bus Stand",
+        "Holkar Square Residences",
+        "Sapna Sangeeta Rd Junction",
+        "Agrasen Square South",
+        "Chitawad Crossing"
+      ],
+      "minOrderValue": 89,
+      "deliveryFee": 25,
+      "freeDeliveryThreshold": 199,
+      "estimatedDeliveryMins": 25,
+      "isActive": true
+    }
+  ]
+}

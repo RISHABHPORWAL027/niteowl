@@ -429,7 +429,7 @@ export function calculateDistanceKm(
               </div>
               <h4 className="font-bold text-base text-[#e5f4eb]">Kitchen Hubs Service</h4>
               <p className="text-xs text-[#88998f] leading-relaxed">
-                Controls Indore dark kitchen outlets (Bhawarkua, Vijay Nagar, Geeta Bhawan), store open/close switches, rush-hour pause throttling, and concentric zone polygons.
+                Controls Indore dark kitchen outlets (Bhawarkua Hub), store open/close switches, rush-hour pause throttling, and concentric zone polygons.
               </p>
               <div className="pt-2 border-t border-[#1c211e] text-[11px] space-y-1 font-mono text-[#88998f]">
                 <div>&bull; GET /api/hubs (list)</div>

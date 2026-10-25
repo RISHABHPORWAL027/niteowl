@@ -42,8 +42,14 @@ export class FleetService {
     }
 
     const newStatus = dto.autoDispatch ? 'OUT_FOR_DELIVERY' : undefined;
+    const previousRiderIds = new Set<string>();
 
     for (const orderId of dto.orderIds) {
+      const prevOrder = await ordersRepository.findById(orderId);
+      if (prevOrder?.riderId && prevOrder.riderId !== rider.id) {
+        previousRiderIds.add(prevOrder.riderId);
+      }
+
       await ordersRepository.update(orderId, {
         riderId: rider.id,
         riderName: rider.name,
@@ -54,13 +60,29 @@ export class FleetService {
       realtimeHub.broadcast({
         type: 'ORDER_STATUS_UPDATED',
         orderId,
-        status: newStatus || 'PREPARING',
+        status: newStatus || (prevOrder?.orderStatus || 'PREPARING'),
         riderName: rider.name,
       });
     }
 
-    // Set rider duty state to ON_DELIVERY
+    // Set new rider duty state to ON_DELIVERY
     await this.repo.update(rider.id, { status: 'ON_DELIVERY' });
+
+    // Free up previous riders if they have no remaining active deliveries
+    if (previousRiderIds.size > 0) {
+      const allOrders = await ordersRepository.findAll();
+      for (const prevRiderId of previousRiderIds) {
+        const remainingActive = allOrders.filter(
+          (o) =>
+            o.riderId === prevRiderId &&
+            o.orderStatus !== 'DELIVERED' &&
+            o.orderStatus !== 'CANCELLED'
+        );
+        if (remainingActive.length === 0) {
+          await this.repo.update(prevRiderId, { status: 'AVAILABLE' });
+        }
+      }
+    }
 
     return {
       success: true,

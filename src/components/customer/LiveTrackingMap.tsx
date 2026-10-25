@@ -9,7 +9,6 @@ import {
   Bike,
   Sparkles,
   Gauge,
-  FastForward,
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -41,7 +40,6 @@ export function LiveTrackingMap({
 
   const [isReady, setIsReady] = useState(false);
   const [driverProgress, setDriverProgress] = useState<number>(0);
-  const [simSpeed, setSimSpeed] = useState<number>(1); // 1x normal, 5x fast
 
   const routeData = getRouteForLandmark(landmarkName);
   const waypoints = routeData.waypoints;
@@ -221,8 +219,8 @@ export function LiveTrackingMap({
     }
 
     // Auto-advance progress every 1.5s
-    const stepInterval = 1500 / simSpeed;
-    const progressStep = 0.035 * simSpeed;
+    const stepInterval = 1500;
+    const progressStep = 0.035;
 
     const interval = setInterval(() => {
       setDriverProgress((prev) => {
@@ -244,7 +242,7 @@ export function LiveTrackingMap({
     }, stepInterval);
 
     return () => clearInterval(interval);
-  }, [isReady, orderStatus, simSpeed, waypoints, destination]);
+  }, [isReady, orderStatus, waypoints, destination]);
 
   // Zoom / Recenter Handlers
   const handleZoomIn = () => mapRef.current?.zoomIn();
@@ -265,12 +263,12 @@ export function LiveTrackingMap({
   );
 
   return (
-    <div className={`relative w-full overflow-hidden rounded-3xl border border-gray-200 bg-gray-100 shadow-md ${className}`}>
+    <div className={`relative isolate z-0 w-full overflow-hidden rounded-3xl border border-gray-200 bg-gray-100 shadow-md ${className}`}>
       {/* Map Container */}
       <div ref={containerRef} className="w-full h-full min-h-[300px]" />
 
       {/* Top Overlay Badge: Live GPS Status */}
-      <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-emerald-200 text-[#239a4e] text-xs font-bold shadow-md">
           <span className="w-2 h-2 rounded-full bg-[#239a4e] animate-ping" />
           <span>
@@ -283,37 +281,8 @@ export function LiveTrackingMap({
         </div>
       </div>
 
-      {/* Top Right Simulation Speed Switcher (for easy testing) */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1 bg-white/90 backdrop-blur-md p-1 rounded-2xl border border-gray-200 shadow-md">
-        <button
-          type="button"
-          onClick={() => setSimSpeed(1)}
-          className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
-            simSpeed === 1
-              ? 'bg-[#239a4e] text-white shadow-xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-          title="Normal real-time speed"
-        >
-          1x
-        </button>
-        <button
-          type="button"
-          onClick={() => setSimSpeed(5)}
-          className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 ${
-            simSpeed === 5
-              ? 'bg-[#239a4e] text-white shadow-xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-          title="Fast-forward GPS speed"
-        >
-          <FastForward className="w-3 h-3" />
-          <span>5x</span>
-        </button>
-      </div>
-
       {/* Bottom Map Floating Controls (Zoom & Recenter) */}
-      <div className="absolute bottom-3 right-3 z-[1000] flex flex-col gap-1.5">
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5">
         <button
           type="button"
           onClick={handleRecenter}
@@ -341,7 +310,7 @@ export function LiveTrackingMap({
       </div>
 
       {/* Bottom Left Distance Gauge */}
-      <div className="absolute bottom-3 left-3 z-[1000] px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-gray-200 shadow-md flex items-center gap-2 text-xs">
+      <div className="absolute bottom-3 left-3 z-10 px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-gray-200 shadow-md flex items-center gap-2 text-xs">
         <Bike className="w-4 h-4 text-[#239a4e]" />
         <div className="text-[11px] font-bold text-gray-800">
           <span>{orderStatus === 'DELIVERED' ? '0.0 km' : `${((1 - driverProgress) * 1.1).toFixed(1)} km left`}</span>

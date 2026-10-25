@@ -42,10 +42,13 @@ export function ProfileDrawer({
     selectSavedAddress,
     activeAddress,
     reorderItems,
+    updateCustomerDisplayName,
   } = useNiteOwlStore();
 
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
 
   if (!isOpen) return null;
 
@@ -60,7 +63,7 @@ export function ProfileDrawer({
     router.replace('/login');
   };
 
-  const displayName = customerUser?.displayName || 'Midnight Diner Member';
+  const displayName = customerUser?.displayName || 'Midnight Foodiee';
   const contactText = customerUser?.email || customerUser?.phoneNumber || '';
 
   // Filter orders for the currently authenticated customer
@@ -115,7 +118,7 @@ export function ProfileDrawer({
               <h3 className="font-bold text-gray-900 text-sm">
                 Customer Profile
               </h3>
-              <p className="text-xs text-gray-500">NiteOwl Midnight Diner</p>
+              <p className="text-xs text-[#239a4e] font-semibold">🌟 NiteOwl Foodiee Club</p>
             </div>
           </div>
           <button
@@ -132,8 +135,53 @@ export function ProfileDrawer({
           {/* User Info Card */}
           <div className="p-4 bg-white border border-gray-200 rounded-2xl space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-black text-gray-900 text-base">{displayName}</h4>
+              <div className="flex-1">
+                {!isEditingName ? (
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-gray-900 text-base">{displayName}</h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewName(displayName);
+                        setIsEditingName(true);
+                      }}
+                      className="p-1 rounded-md text-gray-400 hover:text-[#239a4e] hover:bg-emerald-50 transition-colors cursor-pointer"
+                      title="Edit Foodiee Nickname"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 pb-1">
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Midnight Foodiee"
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg border border-gray-300 focus:border-[#239a4e] focus:outline-none w-44"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newName.trim()) {
+                          updateCustomerDisplayName(newName.trim());
+                        }
+                        setIsEditingName(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-[#239a4e] text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(false)}
+                      className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-[11px] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 {contactText && (
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate max-w-[200px]">
                     {customerUser?.email ? (
@@ -318,70 +366,74 @@ export function ProfileDrawer({
                 <span>Add</span>
               </button>
             </div>
-            <div className="space-y-2">
-              {savedAddresses.map((addr) => {
-                const isActive =
-                  activeAddress?.id === addr.id ||
-                  selectedLandmark === addr.building ||
-                  selectedLandmark === addr.landmark;
+            {savedAddresses.length === 0 ? (
+              <div className="py-4 px-3 text-center rounded-xl bg-[#f8faf9] border border-dashed border-gray-200">
+                <p className="text-xs text-gray-500">No saved addresses yet.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setIsAddressModalOpen(true);
+                  }}
+                  className="mt-1 text-xs font-bold text-[#239a4e] hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3 stroke-[2.5]" />
+                  <span>Add your first address</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedAddresses.map((addr) => {
+                  const isActive =
+                    activeAddress?.id === addr.id ||
+                    selectedLandmark === addr.building ||
+                    selectedLandmark === addr.landmark;
 
-                return (
-                  <div
-                    key={addr.id}
-                    onClick={() => {
-                      selectSavedAddress(addr.id);
-                      onClose();
-                    }}
-                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                      isActive
-                        ? 'bg-emerald-50/50 border-[#239a4e]'
-                        : 'bg-[#f8faf9] border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="min-w-0 pr-2">
-                      <p className="font-semibold text-gray-900 truncate">
-                        {addr.building || addr.landmark}
-                      </p>
-                      <p className="text-[11px] text-gray-500 truncate">
-                        {addr.houseNo ? `${addr.houseNo}, ` : ''}{addr.street}
-                      </p>
+                  return (
+                    <div
+                      key={addr.id}
+                      onClick={() => {
+                        selectSavedAddress(addr.id);
+                        onClose();
+                      }}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-emerald-50/50 border-[#239a4e]'
+                          : 'bg-[#f8faf9] border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {addr.building || addr.landmark}
+                        </p>
+                        <p className="text-[11px] text-gray-500 truncate">
+                          {addr.houseNo ? `${addr.houseNo}, ` : ''}{addr.street}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700 text-[10px] font-semibold shadow-2xs">
+                          {addr.tag}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAddress(addr);
+                            setIsAddressModalOpen(true);
+                          }}
+                          className="w-6 h-6 rounded-md hover:bg-emerald-50 text-gray-400 hover:text-[#239a4e] flex items-center justify-center transition-colors cursor-pointer"
+                          title="Edit address"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700 text-[10px] font-semibold shadow-2xs">
-                        {addr.tag}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingAddress(addr);
-                          setIsAddressModalOpen(true);
-                        }}
-                        className="w-6 h-6 rounded-md hover:bg-emerald-50 text-gray-400 hover:text-[#239a4e] flex items-center justify-center transition-colors cursor-pointer"
-                        title="Edit address"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Store Hub Ops Access */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                router.push('/admin');
-              }}
-              className="w-full py-2.5 px-4 rounded-2xl bg-[#0c0e0d] hover:bg-[#1a201c] text-[#75cf5e] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-98"
-            >
-              <span>🦉 Kitchen Hub Dispatch Console</span>
-            </button>
-          </div>
 
           {/* Customer Sign Out */}
           <div className="pt-1">

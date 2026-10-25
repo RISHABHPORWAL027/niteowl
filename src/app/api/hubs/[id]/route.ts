@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hubsService } from '@/services/hubs/hubs.service';
+import { verifyRequestAuth } from '@/lib/authTokens';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,6 +8,14 @@ interface RouteContext {
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
+    const auth = await verifyRequestAuth(req);
+    if (!auth.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Hub Manager credentials required.' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
     const body = await req.json();
     const { action, zoneId } = body;

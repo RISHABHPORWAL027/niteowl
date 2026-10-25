@@ -1,0 +1,15 @@
+[
+  {
+    "id": "outlet-bhawarkua",
+    "name": "Bhawarkua Hub",
+    "slug": "bhawarkua-indore",
+    "address": "Near Tower Square, Bhawarkua Main Rd, Indore, MP 452001",
+    "lat": 22.6926,
+    "lng": 75.8676,
+    "openingTime": "19:00",
+    "closingTime": "04:00",
+    "isStoreOpen": true,
+    "isRushPaused": false,
+    "surgeMultiplier": 1
+  }
+]

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { ordersRepository } from '@/services/orders/orders.repository';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,24 +14,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'mock_secret_test_key';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+    const isProduction = process.env.NODE_ENV === 'production';
     const isMockKey = !keySecret || keySecret.includes('mock_secret');
 
-    // If real keys are in use, verify HMAC-SHA256 signature strictly with timing-safe comparison
+    if (isProduction && isMockKey) {
+      return NextResponse.json(
+        { success: false, error: 'Razorpay secret key is not configured for production.' },
+        { status: 500 }
+      );
+    }
+
+    // In production, NEVER accept sandbox signatures
+    if (isProduction) {
+      if (
+        razorpay_signature === 'test_sandbox_signature' ||
+        razorpay_payment_id?.startsWith('pay_test_sim_')
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Test signatures are prohibited in production.' },
+          { status: 403 }
+        );
+      }
+    }
+
     if (!isMockKey) {
       if (!razorpay_signature) {
         return NextResponse.json(
-          { success: false, error: 'razorpay_signature is required for signature verification' },
+          { success: false, error: 'razorpay_signature is required' },
           { status: 400 }
         );
       }
 
-      const isSandboxTestSig =
-        process.env.NODE_ENV !== 'production' &&
+      // Check for development sandbox signature bypass
+      const isDevSandbox =
+        !isProduction &&
         razorpay_signature === 'test_sandbox_signature' &&
         razorpay_payment_id?.startsWith('pay_test_');
 
-      if (!isSandboxTestSig) {
+      if (!isDevSandbox) {
         const generatedSignature = crypto
           .createHmac('sha256', keySecret)
           .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -49,23 +71,29 @@ export async function POST(req: NextRequest) {
           );
         }
       }
-
-      return NextResponse.json({
-        success: true,
-        verified: true,
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id,
-      });
     }
 
-    // In Test Simulation Mode, simulate verified status
+    // Secure Order State Transition on Backend
+    try {
+      const orders = await ordersRepository.findAll();
+      const matchingOrder = orders.find(
+        (o) => o.razorpayOrderId === razorpay_order_id || o.id === razorpay_order_id
+      );
+      if (matchingOrder) {
+        await ordersRepository.update(matchingOrder.id, {
+          paymentStatus: 'PAID',
+          razorpayPaymentId: razorpay_payment_id,
+        });
+      }
+    } catch (orderUpdateErr) {
+      console.warn('Could not immediately update order state:', orderUpdateErr);
+    }
+
     return NextResponse.json({
       success: true,
       verified: true,
-      isSimulation: true,
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
-      message: 'Payment verified in Test Sandbox mode.',
     });
   } catch (error: any) {
     console.error('Error in verify-payment route:', error);

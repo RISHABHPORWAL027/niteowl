@@ -1,0 +1,46 @@
+[
+  {
+    "id": "rider-suresh",
+    "name": "Pilot Suresh (#12)",
+    "phone": "+91 98261 44556",
+    "outletId": "outlet-bhawarkua",
+    "preferredZoneCodes": [
+      "ZONE_1",
+      "ZONE_2"
+    ],
+    "vehicle": "TVS Ntorq • MP-09-NW-2026",
+    "status": "AVAILABLE",
+    "rating": 4.9,
+    "baseDeliveredCount": 142,
+    "joinedDate": "Aug 2025"
+  },
+  {
+    "id": "rider-rahul",
+    "name": "Pilot Rahul (#08)",
+    "phone": "+91 98263 11223",
+    "outletId": "outlet-bhawarkua",
+    "preferredZoneCodes": [
+      "ZONE_1"
+    ],
+    "vehicle": "Honda Activa 6G • MP-09-AA-4412",
+    "status": "AVAILABLE",
+    "rating": 4.8,
+    "baseDeliveredCount": 96,
+    "joinedDate": "Nov 2025"
+  },
+  {
+    "id": "rider-vikram",
+    "name": "Pilot Vikram (#15)",
+    "phone": "+91 98268 99887",
+    "outletId": "outlet-bhawarkua",
+    "preferredZoneCodes": [
+      "ZONE_2",
+      "ZONE_3"
+    ],
+    "vehicle": "Bajaj Pulsar 150 • MP-09-CZ-8890",
+    "status": "ON_DELIVERY",
+    "rating": 4.95,
+    "baseDeliveredCount": 188,
+    "joinedDate": "Jun 2025"
+  }
+]

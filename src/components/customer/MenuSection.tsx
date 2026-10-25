@@ -101,14 +101,20 @@ export function MenuSection() {
 
       {/* Menu Item Cards */}
       <div className="px-4 mt-4 space-y-3">
-        {filteredItems.map((item) => {
-          const qty = getCartQuantity(item.id);
+        {filteredItems.length === 0 ? (
+          <div className="py-12 text-center text-gray-500 bg-white rounded-2xl border border-gray-200 p-6 space-y-1.5">
+            <p className="text-sm font-bold text-gray-800">No items found</p>
+            <p className="text-xs text-gray-500">Try searching for something else or switch category.</p>
+          </div>
+        ) : (
+          filteredItems.map((item) => {
+            const qty = getCartQuantity(item.id);
 
-          return (
-            <div
-              key={item.id}
-              className="bg-white border border-gray-200/80 rounded-2xl p-3.5 shadow-xs flex items-start justify-between gap-3 hover:border-[#239a4e]/40 hover:shadow-sm transition-all"
-            >
+            return (
+              <div
+                key={item.id}
+                className="bg-white border border-gray-200/80 rounded-2xl p-3.5 shadow-xs flex items-start justify-between gap-3 hover:border-[#239a4e]/40 hover:shadow-sm transition-all"
+              >
               {/* Left Item Details */}
               <div className="flex-1 min-w-0 pr-1">
                 {/* Veg Indicator & Tag */}
@@ -190,8 +196,9 @@ export function MenuSection() {
               </div>
             </div>
           );
-        })}
-      </div>
+        })
+      )}
+    </div>
     </div>
   );
 }

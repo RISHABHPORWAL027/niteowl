@@ -22,17 +22,20 @@ export default function CustomerHomePage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  const { cart, activeOrder, getCartItemCount, isCustomerAuthenticated } =
+  const { cart, activeOrder, getCartItemCount, isCustomerAuthenticated, syncWithBackend } =
     useNiteOwlStore();
   const itemCount = getCartItemCount();
 
-  // Route Protection & 2-Second Welcome Hero check on login/first arrival
+  // Route Protection & Backend Sync on initial load
   useEffect(() => {
     setIsMounted(true);
     if (!isCustomerAuthenticated) {
       router.replace('/login');
       return;
     }
+
+    // Live sync menu, addresses, and status from backend
+    syncWithBackend();
 
     try {
       const justLoggedIn = sessionStorage.getItem('niteowl_show_welcome') === 'true';

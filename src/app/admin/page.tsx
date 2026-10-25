@@ -53,11 +53,25 @@ export default function AdminPage() {
   // Authentication check & initial microservices sync
   useEffect(() => {
     setMounted(true);
-    if (!isAdminAuthenticated) {
-      router.push('/admin/login');
-    } else {
-      syncWithBackend();
-    }
+    fetch('/api/admin/session')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated) {
+          useNiteOwlStore.setState({ isAdminAuthenticated: true });
+          syncWithBackend();
+        } else if (!isAdminAuthenticated) {
+          router.push('/admin/login');
+        } else {
+          syncWithBackend();
+        }
+      })
+      .catch(() => {
+        if (!isAdminAuthenticated) {
+          router.push('/admin/login');
+        } else {
+          syncWithBackend();
+        }
+      });
   }, [isAdminAuthenticated, router, syncWithBackend]);
 
   // Keep selected order in sync when orders array updates
@@ -100,7 +114,12 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' });
+    } catch (e) {
+      // ignore
+    }
     adminLogout();
     router.push('/admin/login');
   };

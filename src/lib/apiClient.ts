@@ -1,12 +1,65 @@
 // NiteOwl Microservices Client Gateway
 // Typed client for interacting with decoupled backend microservices
 
-import { Order, OrderStatus, Outlet, Rider, RiderStatus, Zone, MenuItem } from '@/types/database';
+import { Order, OrderStatus, Outlet, Rider, RiderStatus, Zone, MenuItem, SavedAddress } from '@/types/database';
 import { CreateOrderDto, UpdateOrderDto, OrderFilter } from '@/services/orders/orders.types';
 import { CreateRiderDto, BulkAssignDto } from '@/services/fleet/fleet.types';
-import { MenuFilter } from '@/services/menu/menu.types';
+import { MenuFilter, CreateMenuItemDto, UpdateMenuItemDto } from '@/services/menu/menu.types';
+import { CreateAddressDto, UpdateAddressDto } from '@/services/addresses/addresses.types';
 
 export const apiClient = {
+  // Addresses Microservice
+  addresses: {
+    list: async (userId?: string): Promise<{ success: boolean; addresses: SavedAddress[]; count: number }> => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId);
+      const res = await fetch(`/api/addresses?${params.toString()}`);
+      if (!res.ok) throw new Error(`Addresses fetch failed: ${res.statusText}`);
+      return await res.json();
+    },
+
+    getById: async (id: string): Promise<SavedAddress | null> => {
+      const res = await fetch(`/api/addresses/${id}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.address || null;
+    },
+
+    create: async (dto: CreateAddressDto): Promise<SavedAddress> => {
+      const res = await fetch('/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create address');
+      }
+      return data.address;
+    },
+
+    update: async (id: string, dto: UpdateAddressDto): Promise<SavedAddress> => {
+      const res = await fetch(`/api/addresses/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update address');
+      }
+      return data.address;
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      const res = await fetch(`/api/addresses/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      return Boolean(res.ok && data.success);
+    },
+  },
+
   // Orders Microservice
   orders: {
     list: async (filter?: OrderFilter): Promise<{ success: boolean; orders: Order[]; count: number }> => {
@@ -155,8 +208,9 @@ export const apiClient = {
 
   // Menu Microservice
   menu: {
-    list: async (filter?: MenuFilter): Promise<{ success: boolean; items: MenuItem[] }> => {
+    list: async (filter?: MenuFilter): Promise<{ success: boolean; items: MenuItem[]; count: number }> => {
       const params = new URLSearchParams();
+      if (filter?.outletId) params.append('outletId', filter.outletId);
       if (filter?.category) params.append('category', filter.category);
       if (filter?.isVeg !== undefined) params.append('isVeg', String(filter.isVeg));
       if (filter?.search) params.append('search', filter.search);
@@ -164,6 +218,47 @@ export const apiClient = {
       const res = await fetch(`/api/menu?${params.toString()}`);
       if (!res.ok) throw new Error(`Menu fetch failed: ${res.statusText}`);
       return await res.json();
+    },
+
+    getById: async (id: string): Promise<MenuItem | null> => {
+      const res = await fetch(`/api/menu/${id}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.item || null;
+    },
+
+    create: async (dto: CreateMenuItemDto): Promise<MenuItem> => {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create menu item');
+      }
+      return data.item;
+    },
+
+    update: async (id: string, dto: UpdateMenuItemDto): Promise<MenuItem> => {
+      const res = await fetch(`/api/menu/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update menu item');
+      }
+      return data.item;
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      const res = await fetch(`/api/menu/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      return Boolean(res.ok && data.success);
     },
   },
 

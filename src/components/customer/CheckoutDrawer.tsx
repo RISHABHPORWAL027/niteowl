@@ -14,10 +14,17 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  MapPin,
+  Plus,
+  Home,
+  Briefcase,
+  Navigation,
+  Pencil,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { useNiteOwlStore } from '@/store/useNiteOwlStore';
+import { useNiteOwlStore, SavedAddress } from '@/store/useNiteOwlStore';
 import { loadRazorpayScript } from '@/lib/razorpay';
+import { AddAddressModal } from './AddAddressModal';
 
 interface CheckoutDrawerProps {
   isOpen: boolean;
@@ -41,21 +48,43 @@ export function CheckoutDrawer({
     packagingFee,
     placeOrder,
     customerUser,
+    activeAddress,
+    savedAddresses,
+    selectSavedAddress,
+    getMinOrderValue,
+    isMinOrderMet,
+    getRemainingForMinOrder,
   } = useNiteOwlStore();
 
+  const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
+  const [isChangeAddressOpen, setIsChangeAddressOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+
   const [customerName, setCustomerName] = useState(
-    customerUser?.displayName || 'Priya Sharma'
+    customerUser?.displayName || 'Midnight Foodiee'
   );
   const [customerPhone, setCustomerPhone] = useState(
-    customerUser?.phoneNumber || '+91 98260 11234'
+    customerUser?.phoneNumber || ''
   );
-  const [roomNo, setRoomNo] = useState('Flat 302, 3rd Floor / Wing A');
+  const [roomNo, setRoomNo] = useState(activeAddress?.houseNo || '');
   const [leaveAtGate, setLeaveAtGate] = useState(true);
   const [silentDelivery, setSilentDelivery] = useState(true);
   const [maskedCall, setMaskedCall] = useState(true);
   const [riderNotes, setRiderNotes] = useState('Leave with night security or doorstep.');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (customerUser?.displayName) {
+        setCustomerName(customerUser.displayName);
+      } else {
+        setCustomerName('Midnight Foodiee');
+      }
+      if (customerUser?.phoneNumber) setCustomerPhone(customerUser.phoneNumber);
+      if (activeAddress?.houseNo) setRoomNo(activeAddress.houseNo);
+    }
+  }, [isOpen, customerUser, activeAddress]);
 
   // Simulation test modal for sandbox testing
   const [showSimModal, setShowSimModal] = useState(false);
@@ -66,6 +95,9 @@ export function CheckoutDrawer({
   const subtotal = getCartSubtotal();
   const deliveryFee = getDeliveryFee();
   const total = getTotal();
+  const minOrderValue = getMinOrderValue();
+  const isMet = isMinOrderMet();
+  const remaining = getRemainingForMinOrder();
 
   const finalizeOrder = (razorpayOrderId?: string, razorpayPaymentId?: string) => {
     try {
@@ -82,9 +114,9 @@ export function CheckoutDrawer({
     placeOrder({
       customerName,
       customerPhone,
-      hostelPgOrFlat: selectedLandmark,
+      hostelPgOrFlat: activeAddress?.building || selectedLandmark,
       roomNo,
-      landmark: `${selectedLandmark}, ${currentZone?.name}`,
+      landmark: activeAddress?.landmark || `${selectedLandmark}, ${currentZone?.name}`,
       leaveAtGate,
       silentDelivery,
       maskedCall,
@@ -102,6 +134,11 @@ export function CheckoutDrawer({
   };
 
   const handlePayAndOrder = async () => {
+    if (!isMinOrderMet()) {
+      setPaymentError(`Minimum order value is ₹${minOrderValue}. Please add items worth ₹${remaining} more.`);
+      return;
+    }
+
     setIsSubmitting(true);
     setPaymentError(null);
 
@@ -112,6 +149,13 @@ export function CheckoutDrawer({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: total,
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            quantity: c.quantity,
+            price: c.price,
+          })),
+          outletId: currentOutlet.id,
+          zoneId: currentZone?.id,
           receipt: `rcpt_${Date.now()}`,
           notes: {
             customerName,
@@ -248,26 +292,195 @@ export function CheckoutDrawer({
         {/* Scrollable Content */}
         <div className="p-4 overflow-y-auto space-y-4 flex-1 bg-[#f8faf9]">
           {/* Delivery Address Card */}
-          <div className="p-3.5 bg-white border border-gray-200 rounded-2xl space-y-2 shadow-xs">
-            <div className="flex items-start justify-between">
-              <div className="flex gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#239a4e] flex items-center justify-center shrink-0">
-                  <Building className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 text-xs leading-snug">
-                    {selectedLandmark}
-                  </h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Indore • Estimated arrival in ~{currentZone?.estimatedDeliveryMins || 15} mins
-                  </p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#239a4e] border border-emerald-200 text-[10px] font-bold">
-                Fast Track
+          {/* Delivery Address Card with Google Map Pinning */}
+          <div className="p-3.5 bg-white border border-gray-200 rounded-2xl space-y-3 shadow-xs">
+            {/* Delivery Location Header with MapPin & Add Address Buttons */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#239a4e]" />
+                Delivery Address
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAddress(null);
+                  setIsAddAddressOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#239a4e] border border-emerald-200/80 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Add new address by pinning location on Google Map"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Add with Google Map</span>
+              </button>
             </div>
 
+            {/* Current Active Address Card */}
+            <div className="p-3 rounded-xl bg-[#f8faf9] border border-gray-150 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100/70 text-[#239a4e] flex items-center justify-center shrink-0">
+                    {activeAddress?.tag === 'Work' ? (
+                      <Briefcase className="w-4 h-4" />
+                    ) : activeAddress?.tag === 'Apartment' ? (
+                      <Building className="w-4 h-4" />
+                    ) : (
+                      <Home className="w-4 h-4" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-bold text-gray-900 text-xs leading-snug">
+                        {activeAddress?.building || selectedLandmark}
+                      </h4>
+                      {activeAddress?.tag && (
+                        <span className="px-1.5 py-0.2 rounded bg-white border border-gray-200 text-gray-600 text-[9px] font-bold uppercase">
+                          {activeAddress.tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
+                      {activeAddress?.street ? `${activeAddress.street} • ` : ''}Indore • Estimated arrival in ~{currentZone?.estimatedDeliveryMins || 15} mins
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#239a4e] border border-emerald-200 text-[10px] font-bold">
+                    Fast Track
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsChangeAddressOpen(!isChangeAddressOpen)}
+                    className="px-2 py-0.5 text-[11px] font-bold text-[#239a4e] hover:underline cursor-pointer"
+                  >
+                    {isChangeAddressOpen ? 'Close' : 'Change'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Prompt to Pin with Google Map */}
+              <div className="pt-2 border-t border-gray-200/60 flex items-center justify-between text-[11px]">
+                <span className="text-gray-500">Need exact doorstep pin?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setIsAddAddressOpen(true);
+                  }}
+                  className="font-bold text-[#239a4e] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Navigation className="w-3 h-3 text-[#239a4e]" />
+                  <span>Pin on Google Map</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Saved Addresses List (Dropdown/Accordion when 'Change' is clicked) */}
+            {isChangeAddressOpen && (
+              <div className="p-2.5 rounded-xl bg-[#f0fdf4] border border-emerald-200 space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between text-[11px] text-gray-600 font-semibold">
+                  <span>Saved Addresses ({savedAddresses.length}):</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAddress(null);
+                      setIsAddAddressOpen(true);
+                    }}
+                    className="text-[#239a4e] font-bold hover:underline flex items-center gap-1 text-[10px] cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New via Google Map</span>
+                  </button>
+                </div>
+
+                {savedAddresses.length === 0 ? (
+                  <div className="p-3 text-center bg-white rounded-lg border border-gray-200 text-xs text-gray-500">
+                    <p>No saved addresses yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddress(null);
+                        setIsAddAddressOpen(true);
+                      }}
+                      className="mt-1 text-xs font-bold text-[#239a4e] hover:underline cursor-pointer"
+                    >
+                      + Add Location using Google Map
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {savedAddresses.map((addr) => {
+                      const isCurrent =
+                        activeAddress?.id === addr.id ||
+                        selectedLandmark === addr.building ||
+                        selectedLandmark === addr.landmark;
+
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => {
+                            selectSavedAddress(addr.id);
+                            setIsChangeAddressOpen(false);
+                          }}
+                          className={`p-2 rounded-lg border flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                            isCurrent
+                              ? 'bg-emerald-100/60 border-[#239a4e] font-bold text-gray-900'
+                              : 'bg-white border-gray-200 hover:border-emerald-300 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <span className="font-semibold block truncate">
+                              {addr.building || addr.landmark}
+                            </span>
+                            <span className="text-[10px] text-gray-500 truncate block">
+                              {addr.houseNo ? `${addr.houseNo}, ` : ''}{addr.street}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[9px] font-bold">
+                              {addr.tag}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[#239a4e] text-xs font-bold">✓</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Inputs: Foodiee Name & Phone */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-1">
+                  Foodiee Name:
+                </label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="e.g. Midnight Foodiee"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-[#239a4e] focus:outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-1">
+                  Contact Phone:
+                </label>
+                <input
+                  type="text"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="e.g. +91 9876543210"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-[#239a4e] focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* House / Flat / Details */}
             <div className="pt-2 border-t border-gray-100">
               <label className="text-[10px] font-semibold text-gray-500 block mb-1">
                 House / Flat / Tower / Building Details:
@@ -364,6 +577,16 @@ export function CheckoutDrawer({
             </div>
           </div>
 
+          {/* Minimum Order Value Alert */}
+          {!isMet && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>
+                Minimum order amount is <strong>₹{minOrderValue}</strong>. Add ₹{remaining} more to checkout.
+              </span>
+            </div>
+          )}
+
           {/* Payment Error Alert */}
           {paymentError && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 animate-in fade-in">
@@ -444,14 +667,20 @@ export function CheckoutDrawer({
 
           <button
             onClick={handlePayAndOrder}
-            disabled={isSubmitting}
-            className="flex-1 max-w-[240px] py-3 rounded-xl bg-[#239a4e] hover:bg-[#1d8242] text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-[#239a4e]/20 active:scale-95 transition-all cursor-pointer"
+            disabled={isSubmitting || !isMet}
+            className={`flex-1 max-w-[240px] py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all ${
+              !isMet
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200'
+                : 'bg-[#239a4e] hover:bg-[#1d8242] text-white shadow-[#239a4e]/20 active:scale-95 cursor-pointer'
+            }`}
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
                 <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Connecting Razorpay...
               </span>
+            ) : !isMet ? (
+              <span>Add ₹{remaining} More</span>
             ) : (
               <>
                 <Lock className="w-3.5 h-3.5" />
@@ -556,6 +785,21 @@ export function CheckoutDrawer({
           </div>
         </div>
       )}
+
+      {/* Add / Edit Address using Google Map Modal */}
+      <AddAddressModal
+        isOpen={isAddAddressOpen}
+        addressToEdit={editingAddress}
+        onClose={() => {
+          setIsAddAddressOpen(false);
+          setEditingAddress(null);
+        }}
+        onAddressSaved={() => {
+          setIsAddAddressOpen(false);
+          setEditingAddress(null);
+          setIsChangeAddressOpen(false);
+        }}
+      />
     </div>
   );
 }
